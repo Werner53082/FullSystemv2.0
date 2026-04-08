@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Municipal FMS</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:system-ui,sans-serif;background:#f5f4f0;color:#111;}
+
+/* ── DESIGN TOKENS ── */
+:root{
+  --brand:#0C447C;--brand-mid:#185FA5;--brand-light:#E6F1FB;
+  --success:#3B6D11;--success-bg:#EAF3DE;
+  --warn:#854F0B;--warn-bg:#FAEEDA;
+  --danger:#A32D2D;--danger-bg:#FCEBEB;
+  --critical-bg:#FCEBEB;--critical:#A32D2D;
+  --high-bg:#FAEEDA;--high:#854F0B;
+  --medium-bg:#E6F1FB;--medium:#185FA5;
+  --low-bg:#EAF3DE;--low:#3B6D11;
+  --purple:#534AB7;--purple-bg:#EEEDFE;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;
+  --gray:#5F5E5A;--gray-bg:#F1EFE8;
+  --r:12px;--rs:8px;
+  --bg:#fff;--bg2:#f0efeb;--bg3:#f5f4f0;
+  --tx:#111;--tx2:#666;--tx3:#999;
+  --bd:rgba(0,0,0,0.1);--bd2:rgba(0,0,0,0.18);
+}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex-direction:column;height:100%;max-width:480px;margin:0 auto;background:#f5f4f0;position:relative;}
+.app-header{background:var(--brand);color:white;padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:50;}
+.app-header h1{font-size:15px;font-weight:500;}
+.app-header-right{display:flex;align-items:center;gap:8px;}
+.role-badge{font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.2);color:white;letter-spacing:0.3px;}
+.sync-pill{display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(255,255,255,0.75);padding:3px 8px;border-radius:10px;border:0.5px solid rgba(255,255,255,0.25);cursor:pointer;}
+.sdot{width:6px;height:6px;border-radius:50%;background:#97C459;flex-shrink:0;}
+.sdot.off{background:#EF9F27;}
+
+.screen-wrap{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;}
+.screen{display:none;padding:14px;}
+.screen.active{display:block;}
+
+/* ── BOTTOM NAV ── */
+.bot-nav{position:absolute;bottom:0;left:0;right:0;background:var(--bg);border-top:0.5px solid var(--bd);display:flex;z-index:50;}
+.nav-btn{flex:1;padding:9px 4px 11px;text-align:center;border:none;background:none;font-family:inherit;font-size:10px;color:var(--tx2);cursor:pointer;transition:color .15s;position:relative;}
+.nav-btn.active{color:var(--brand);}
+.nav-btn.warn-nav{color:var(--warn);}
+.nav-btn svg{display:block;margin:0 auto 3px;}
+.nav-dot{position:absolute;top:7px;right:calc(50% - 14px);width:6px;height:6px;border-radius:50%;background:var(--warn);}
+
+/* ── CARDS & FORMS ── */
+.card{background:var(--bg);border-radius:var(--r);border:0.5px solid var(--bd);padding:15px;margin-bottom:11px;}
+.card-title{font-size:12px;font-weight:500;color:var(--tx2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;}
+.sh{font-size:19px;font-weight:500;margin-bottom:4px;}
+.ss{font-size:13px;color:var(--tx2);margin-bottom:14px;line-height:1.5;}
+
+label{display:block;font-size:12px;color:var(--tx2);margin-bottom:4px;margin-top:11px;}
+label:first-child{margin-top:0;}
+input[type=text],input[type=tel],input[type=date],input[type=search],select,textarea{
+  width:100%;font-size:15px;padding:10px 12px;border-radius:var(--rs);
+  border:0.5px solid var(--bd2);background:var(--bg);color:var(--tx);font-family:inherit;}
+input[type=text],input[type=tel],input[type=date],input[type=search],select{height:42px;}
+textarea{resize:vertical;min-height:72px;line-height:1.5;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-light);}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%23666' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+
+/* ── BUTTONS ── */
+.btn{display:block;width:100%;padding:13px;border-radius:var(--rs);font-size:15px;font-weight:500;cursor:pointer;border:none;font-family:inherit;text-align:center;transition:all .15s;}
+.btn-p{background:var(--brand);color:white;} .btn-p:hover{background:var(--brand-mid);}
+.btn-s{background:var(--bg2);color:var(--tx);border:0.5px solid var(--bd2);}
+.btn-ok{background:var(--success);color:white;}
+.btn-warn{background:var(--warn);color:white;}
+.btn-danger{background:var(--danger);color:white;}
+.btn-sm{font-size:13px;padding:8px 12px;}
+.btn-row{display:flex;gap:8px;margin-top:11px;}
+.btn-row .btn{margin:0;}
+.btn:active{transform:scale(0.98);}
+
+/* ── PRIORITY BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+.badge-critical{background:var(--critical-bg);color:var(--critical);}
+.badge-high{background:var(--high-bg);color:var(--high);}
+.badge-medium{background:var(--medium-bg);color:var(--medium);}
+.badge-low{background:var(--low-bg);color:var(--low);}
+.badge-brand{background:var(--brand-light);color:var(--brand);}
+.badge-success{background:var(--success-bg);color:var(--success);}
+.badge-warn{background:var(--warn-bg);color:var(--warn);}
+.badge-gray{background:var(--gray-bg);color:var(--gray);}
+.badge-purple{background:var(--purple-bg);color:var(--purple);}
+
+/* ── STATUS BADGE ── */
+.status-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:500;}
+
+/* ── NOTICE ── */
+.notice{padding:11px 13px;border-radius:var(--rs);font-size:13px;margin-bottom:11px;line-height:1.5;}
+.notice-info{background:var(--brand-light);color:#0C447C;border:0.5px solid #B5D4F4;}
+.notice-warn{background:var(--warn-bg);color:var(--warn);border:0.5px solid #FAC775;}
+.notice-success{background:var(--success-bg);color:var(--success);border:0.5px solid #C0DD97;}
+.notice-danger{background:var(--danger-bg);color:var(--danger);border:0.5px solid #F09595;}
+
+/* ── JOB LIST ITEMS ── */
+.job-item{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;}
+.job-item:last-child{border-bottom:none;}
+.job-item:hover{background:var(--bg2);margin:0 -15px;padding:11px 15px;border-radius:var(--rs);}
+.job-icon{width:38px;height:38px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.job-body{flex:1;min-width:0;}
+.job-title{font-size:14px;font-weight:500;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.job-sub{font-size:12px;color:var(--tx2);margin-top:2px;}
+.job-meta{font-size:11px;color:var(--tx3);margin-top:3px;}
+.job-right{flex-shrink:0;text-align:right;}
+
+/* ── SUMMARY CARDS (dashboard) ── */
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.summary-card{background:var(--bg);border-radius:var(--r);border:0.5px solid var(--bd);padding:13px 14px;cursor:pointer;transition:box-shadow .15s;}
+.summary-card:hover{box-shadow:0 0 0 1.5px var(--bd2);}
+.summary-card.urgent{border-color:#FAC775;}
+.summary-card.alert{border-color:#F09595;}
+.sc-label{font-size:11px;color:var(--tx2);margin-bottom:6px;}
+.sc-count{font-size:28px;font-weight:500;color:var(--tx);line-height:1;}
+.sc-count.warn{color:var(--warn);}
+.sc-count.danger{color:var(--danger);}
+.sc-count.success{color:var(--success);}
+.sc-sub{font-size:10px;color:var(--tx3);margin-top:4px;}
+
+/* ── PHOTO ZONE ── */
+.pz{border:1.5px dashed var(--bd2);border-radius:var(--rs);padding:16px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg2);margin-bottom:6px;}
+.pz:hover{border-color:var(--brand);background:var(--brand-light);}
+.pz.captured{border-style:solid;border-color:var(--success);background:var(--success-bg);}
+.pz svg{display:block;margin:0 auto 7px;}
+.pz p{font-size:12px;color:var(--tx2);}
+.pz.captured p{color:var(--success);font-weight:500;}
+.pthumb{width:100%;max-height:150px;object-fit:cover;border-radius:var(--rs);margin-top:6px;display:none;}
+.pthumb.vis{display:block;}
+
+/* ── DIVIDER ── */
+.divider{height:0.5px;background:var(--bd);margin:11px 0;}
+.mt8{margin-top:8px;} .mt11{margin-top:11px;} .mt16{margin-top:16px;}
+
+/* ── STEP INDICATOR ── */
+.step-bar{display:flex;gap:4px;margin-bottom:14px;}
+.step-pip{flex:1;height:3px;border-radius:2px;background:var(--bd2);}
+.step-pip.done{background:var(--success);}
+.step-pip.active{background:var(--brand);}
+
+/* ── SECTION LABEL ── */
+.section-label{font-size:11px;font-weight:500;color:var(--tx2);text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 6px;}
+
+/* ── TOGGLE ── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
+.toggle{position:relative;width:42px;height:23px;}
+.toggle input{opacity:0;width:0;height:0;}
+.tslider{position:absolute;cursor:pointer;inset:0;background:var(--bd2);border-radius:23px;transition:.2s;}
+.tslider:before{content:'';position:absolute;width:17px;height:17px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.2s;}
+input:checked+.tslider{background:var(--brand);}
+input:checked+.tslider:before{transform:translateX(19px);}
+
+/* ── OFFLINE BANNER ── */
+.offline-banner{background:var(--warn-bg);color:var(--warn);font-size:12px;padding:8px 14px;text-align:center;display:none;border-bottom:0.5px solid #FAC775;flex-shrink:0;}
+
+/* ── LOGIN SCREEN ── */
+.login-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:#f5f4f0;}
+.login-logo{width:56px;height:56px;background:var(--brand);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
+.login-title{font-size:22px;font-weight:500;text-align:center;color:var(--tx);margin-bottom:4px;}
+.login-sub{font-size:13px;color:var(--tx2);text-align:center;margin-bottom:28px;}
+.login-card{background:var(--bg);border-radius:var(--r);border:0.5px solid var(--bd);padding:20px;width:100%;max-width:400px;}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px;}
+.role-btn{padding:12px 8px;border-radius:var(--rs);border:1.5px solid var(--bd2);background:var(--bg);cursor:pointer;text-align:center;font-family:inherit;transition:all .15s;}
+.role-btn:hover{border-color:var(--brand);background:var(--brand-light);}
+.role-btn.selected{border-color:var(--brand);background:var(--brand-light);}
+.role-btn svg{display:block;margin:0 auto 6px;}
+.role-btn-label{font-size:12px;font-weight:500;color:var(--tx);}
+.role-btn-sub{font-size:10px;color:var(--tx2);margin-top:2px;}
+.role-btn.selected .role-btn-label{color:var(--brand);}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:32px 16px;color:var(--tx2);}
+.empty-icon{width:48px;height:48px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+.empty p{font-size:14px;margin-bottom:8px;}
+.empty small{font-size:12px;color:var(--tx3);}
+
+/* ── ITEM ROW ── */
+.ir{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:0.5px solid var(--bd);font-size:14px;gap:12px;}
+.ir:last-child{border-bottom:none;}
+.ir .l{color:var(--tx2);font-size:12px;flex-shrink:0;}
+.ir .v{font-weight:500;text-align:right;word-break:break-word;}
+</style>
+
+<script>
+// ── OFFLINE CACHING — Cache API (no Service Worker file needed) ───────────────
+// Caches the page itself on first load using the Cache API directly.
+// Works in all modern browsers including those that block blob SW URLs.
+(function() {
+  var CACHE_NAME = 'fms-offline-v3';
+  var PAGE_URL = window.location.href;
+
+  // On load: cache this page for offline use
+  if ('caches' in window) {
+    window.addEventListener('load', function() {
+      caches.open(CACHE_NAME).then(function(cache) {
+        cache.add(PAGE_URL).then(function() {
+          console.log('FMS: Page cached for offline use');
+        }).catch(function() {});
+      }).catch(function() {});
+    });
+  }
+
+  // Show offline indicator when connection drops
+  window.addEventListener('offline', function() {
+    var banner = document.getElementById('offlineBanner');
+    if (banner) {
+      banner.style.display = 'block';
+      banner.textContent = 'No connection — app running from cache. All data saved locally.';
+    }
+    console.log('FMS: Gone offline — running from cache');
+  });
+
+  window.addEventListener('online', function() {
+    var banner = document.getElementById('offlineBanner');
+    if (banner) banner.style.display = 'none';
+    console.log('FMS: Back online');
+    // Refresh cache with latest version
+    if ('caches' in window) {
+      caches.open(CACHE_NAME).then(function(cache) {
+        cache.add(PAGE_URL).catch(function() {});
+      });
+    }
+  });
+})();
+</script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     LOGIN SCREEN
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="loginScreen" class="login-wrap">
+  <div class="login-logo">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <path d="M14 4L24 10V18L14 24L4 18V10L14 4Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M14 4V24M4 10L24 18M24 10L4 18" stroke="white" stroke-width="1" opacity="0.4"/>
+    </svg>
+  </div>
+  <div class="login-title">Municipal FMS</div>
+  <div class="login-sub">Fault Management System — Electricity</div>
+  <div class="login-card">
+    <label>Your name</label>
+    <input type="text" id="loginName" placeholder="Full name">
+    <label style="margin-top:14px;">Select your role</label>
+    <div class="role-grid">
+      <button class="role-btn" onclick="selectRole('call_centre')" id="rb-call_centre">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 4h12v9H4z" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M7 17h6M10 13v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div class="role-btn-label">Call centre</div>
+        <div class="role-btn-sub">Log complaints</div>
+      </button>
+      <button class="role-btn" onclick="selectRole('artisan')" id="rb-artisan">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M10 7v3l2 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div class="role-btn-label">Artisan</div>
+        <div class="role-btn-sub">Field work</div>
+      </button>
+      <button class="role-btn" onclick="selectRole('technician')" id="rb-technician">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M9 3H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4" stroke="currentColor" stroke-width="1.4"/><path d="M13 3l2 2-6 6H7v-2l6-6z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        <div class="role-btn-label">Technician</div>
+        <div class="role-btn-sub">Approve &amp; sign off</div>
+      </button>
+      <button class="role-btn" onclick="selectRole('stores')" id="rb-stores">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="7" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M7 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div class="role-btn-label">Stores officer</div>
+        <div class="role-btn-sub">Issue &amp; receive</div>
+      </button>
+      <button class="role-btn" onclick="selectRole('manager')" id="rb-manager">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M4 17c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div class="role-btn-label">Div. Manager</div>
+        <div class="role-btn-sub">Approve &amp; oversee</div>
+      </button>
+      <button class="role-btn" onclick="selectRole('read_only')" id="rb-read_only">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4C6 4 3 10 3 10s3 6 7 6 7-6 7-6-3-6-7-6z" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="2" stroke="currentColor" stroke-width="1.4"/></svg>
+        <div class="role-btn-label">Read only</div>
+        <div class="role-btn-sub">View &amp; report</div>
+      </button>
+    </div>
+    <button class="btn btn-p mt16" onclick="login()">Enter system</button>
+    <p id="loginErr" style="display:none;color:var(--danger);font-size:12px;text-align:center;margin-top:8px;">Please enter your name and select a role.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="mainApp" class="app" style="display:none;">
+  <div class="app-header">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="home-btn" id="homeBtn" onclick="goHome()" style="display:none;" title="Back to dashboard">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 9l7-6 7 6v9a1 1 0 01-1 1H4a1 1 0 01-1-1z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 20v-7h6v7" stroke="white" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        Home
+      </button>
+      <h1 id="appTitle">Municipal FMS</h1>
+    </div>
+    <div class="app-header-right">
+      <div class="role-badge" id="roleBadge" onclick="showLogout()" title="Tap to switch role" style="cursor:pointer;"></div>
+      <div class="sync-pill" id="syncPill">
+        <div class="sdot" id="sdot"></div>
+        <span id="syncLbl">Online</span>
+      </div>
+    </div>
+  </div>
+  <div class="offline-banner" id="offlineBanner">No connection — data saved locally, syncs when online</div>
+
+  <div class="screen-wrap">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="screen active" id="scr-dashboard">
+      <p class="sh">Dashboard</p>
+      <p class="ss" id="dash-greeting">Good morning</p>
+
+      <!-- Summary cards -->
+      <div class="summary-grid">
+        <div class="summary-card urgent" onclick="filterJobs('approval')">
+          <div class="sc-label">Requires approval</div>
+          <div class="sc-count warn" id="cnt-approval">0</div>
+          <div class="sc-sub">Waiting for you</div>
+        </div>
+        <div class="summary-card urgent" onclick="filterJobs('signoff')">
+          <div class="sc-label">Pending sign-off</div>
+          <div class="sc-count warn" id="cnt-signoff">0</div>
+          <div class="sc-sub">Completion submitted</div>
+        </div>
+        <div class="summary-card" onclick="filterJobs('all')">
+          <div class="sc-label">Open jobs</div>
+          <div class="sc-count" id="cnt-open">0</div>
+          <div class="sc-sub">All statuses</div>
+        </div>
+        <div class="summary-card alert" onclick="goToRecon()">
+          <div class="sc-label">Stores outstanding</div>
+          <div class="sc-count danger" id="cnt-recon">0</div>
+          <div class="sc-sub">Financial numbers pending</div>
+        </div>
+        <div class="summary-card" onclick="filterJobs('today')">
+          <div class="sc-label">New today</div>
+          <div class="sc-count success" id="cnt-today">0</div>
+          <div class="sc-sub">Logged since midnight</div>
+        </div>
+        <div class="summary-card" onclick="filterJobs('closed-today')">
+          <div class="sc-label">Closed today</div>
+          <div class="sc-count success" id="cnt-closed-today">0</div>
+          <div class="sc-sub">Completed today</div>
+        </div>
+      </div>
+
+      <!-- Open jobs list -->
+      <div class="section-label">Open jobs — all ages</div>
+      <!-- Filter row -->
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px;">
+        <button class="badge badge-brand" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('all')">All</button>
+        <button class="badge badge-critical" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('critical')">Critical</button>
+        <button class="badge badge-warn" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('high')">High</button>
+        <button class="badge badge-gray" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('artisan')">By artisan</button>
+        <button class="badge badge-gray" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('area')">By area</button>
+        <button class="badge badge-gray" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('type')">By type</button>
+      </div>
+      <div class="card" id="jobs-list">
+        <div class="empty">
+          <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.4"/><path d="M9 5a2 2 0 002 2h2a2 2 0 002-2" stroke="currentColor" stroke-width="1.4"/></svg></div>
+          <p>No open jobs</p>
+          <small>Log a new complaint to get started</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── NEW JOB (Stage 1 — Intake) ── -->
+    <div class="screen" id="scr-new">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Log new job</p>
+        <button class="btn btn-s btn-sm" onclick="goHome()">&#8592; Dashboard</button>
+      </div>
+      <p class="ss">Stage 1 — Intake &amp; complaint logging</p>
+
+      <div class="card">
+        <div class="card-title">Job source</div>
+        <label>How was this job initiated?</label>
+        <select id="jobSource">
+          <option value="">Select source…</option>
+          <option value="resident_complaint">Resident / public complaint</option>
+          <option value="dm_instruction">Divisional Manager instruction</option>
+          <option value="internal_inspection">Internal inspection</option>
+          <option value="planned_maintenance">Planned maintenance</option>
+        </select>
+      </div>
+
+      <div class="card" id="complainant-card">
+        <div class="card-title">Complainant details</div>
+        <label>Name</label>
+        <input type="text" id="compName" placeholder="Complainant full name">
+        <label>Contact number</label>
+        <input type="tel" id="compContact" placeholder="+27 …">
+        <label>Address / stand number</label>
+        <input type="text" id="compAddress" placeholder="Street address or stand number">
+      </div>
+
+      <div class="card">
+        <div class="card-title">Fault details</div>
+        <label>Fault category</label>
+        <select id="faultCategory">
+          <option value="">Select category…</option>
+          <option value="transformer_fault">Transformer fault</option>
+          <option value="mini_substation_failure">Mini-substation failure</option>
+          <option value="cable_fault_hv">Cable fault (HV)</option>
+          <option value="cable_fault_lv">Cable fault (LV)</option>
+          <option value="overhead_line_fault">Overhead line fault</option>
+          <option value="streetlight_fault">Streetlight fault</option>
+          <option value="metering_fault">Metering fault</option>
+          <option value="switchgear_fault">Switchgear fault</option>
+          <option value="protection_fault">Protection-related fault</option>
+          <option value="general_outage">General outage</option>
+          <option value="illegal_connection">Illegal connection / tampering</option>
+          <option value="vegetation_encroachment">Vegetation encroachment</option>
+          <option value="vandalism_theft">Vandalism / theft</option>
+          <option value="planned_maintenance">Planned maintenance</option>
+          <option value="other">Other</option>
+        </select>
+        <label>Priority</label>
+        <select id="priority">
+          <option value="">Select priority…</option>
+          <option value="critical">Critical — main feeders, hospitals, safety hazards, top 20 customers</option>
+          <option value="high">High — large areas, multiple customers, key public infrastructure</option>
+          <option value="medium">Medium — single customer, limited area</option>
+          <option value="low">Low — planned maintenance, streetlights, non-urgent</option>
+        </select>
+        <label>Fault description</label>
+        <textarea id="faultDesc" placeholder="Describe the fault in detail…"></textarea>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Location</div>
+        <label>Street address</label>
+        <input type="text" id="streetAddress" placeholder="Street address">
+        <label>Account number <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <input type="text" id="accountNumber" placeholder="Customer account number">
+        <label>Site code <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <input type="text" id="siteCode" placeholder="e.g. SUB-MOK-001">
+        <div class="notice notice-info mt8" id="gps-status-new">
+          <span id="gps-status-text-new">Acquiring GPS coordinates…</span>
+        </div>
+        <div id="gps-flag-row" style="display:none;">
+          <div class="toggle-row">
+            <span style="font-size:13px;">Flag GPS as unreliable</span>
+            <label class="toggle"><input type="checkbox" id="gpsFlagNew" onchange="toggleGpsFlag()"><span class="tslider"></span></label>
+          </div>
+          <div id="gps-manual-new" style="display:none;">
+            <label>Manual coordinate or address override</label>
+            <input type="text" id="gpsManualNew" placeholder="e.g. -24.76543, 28.92341 or street address">
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="parallel-card">
+        <div class="card-title">Manual reference <span class="badge badge-gray" style="font-size:9px;vertical-align:middle;">Parallel running</span></div>
+        <label>Paper job card number</label>
+        <input type="text" id="manualJcn" placeholder="Pre-printed job card number">
+        <label>Free reference notes <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <input type="text" id="freeRef" placeholder="Any other reference numbers">
+      </div>
+
+      <div class="card">
+        <div class="card-title">Assign artisan</div>
+        <label>Responsible artisan</label>
+        <select id="assignArtisan">
+          <option value="">Select artisan…</option>
+        </select>
+        <label>Additional artisans <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <select id="supportArtisans">
+          <option value="">Add supporting artisan…</option>
+        </select>
+        <div id="supporting-list" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-s" onclick="goTo('dashboard')">Cancel</button>
+        <button class="btn btn-p" onclick="submitNewJob()">Log job &amp; dispatch</button>
+      </div>
+    </div>
+
+    <!-- ── MY JOBS (Artisan view) ── -->
+    <div class="screen" id="scr-myjobs">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">My jobs</p>
+        <button class="btn btn-s btn-sm" onclick="goHome()">&#8592; Dashboard</button>
+      </div>
+      <p class="ss">Jobs assigned to you</p>
+      <div style="display:flex;gap:6px;margin-bottom:11px;">
+        <button class="badge badge-warn" style="cursor:pointer;border:none;" onclick="myJobFilter('active')">Active</button>
+        <button class="badge badge-brand" style="cursor:pointer;border:none;" onclick="myJobFilter('all')">All</button>
+        <button class="badge badge-success" style="cursor:pointer;border:none;" onclick="myJobFilter('closed')">Closed</button>
+      </div>
+      <div class="card" id="my-jobs-list">
+        <div class="empty">
+          <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.4"/></svg></div>
+          <p>No jobs assigned</p>
+          <small>Jobs dispatched to you will appear here</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── APPROVAL QUEUE ── -->
+    <div class="screen" id="scr-approvals">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Approval queue</p>
+        <button class="btn btn-s btn-sm" onclick="goHome()">&#8592; Dashboard</button>
+      </div>
+      <p class="ss">Jobs awaiting your action</p>
+      <div class="card" id="approval-list">
+        <div class="empty">
+          <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.4"/></svg></div>
+          <p>No jobs pending approval</p>
+          <small>All clear</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STORES ── -->
+    <!-- ── STORES (Stage 4) ── -->
+    <div class="screen" id="scr-stores">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Stores</p>
+        <button class="btn btn-s btn-sm" onclick="goHome()">&#8592; Dashboard</button>
+      </div>
+      <p class="ss">Issue, receive and check in items</p>
+      <div style="display:flex;gap:6px;margin-bottom:11px;overflow-x:auto;padding-bottom:4px;">
+        <button class="badge badge-brand" style="cursor:pointer;border:none;white-space:nowrap;" onclick="storesTab('pending')" id="stab-pending">Pending issue</button>
+        <button class="badge badge-warn" style="cursor:pointer;border:none;white-space:nowrap;" onclick="storesTab('returns')" id="stab-returns">Returns due</button>
+        <button class="badge badge-danger" style="cursor:pointer;border:none;white-space:nowrap;" onclick="storesTab('recon')" id="stab-recon">Financial nos.</button>
+      </div>
+      <div class="card" id="stores-list">
+        <div class="empty"><div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="8" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M8 8V6a4 4 0 018 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><p>No pending stores actions</p><small>Approved requisitions appear here</small></div>
+      </div>
+    </div>
+
+    <!-- ── STORES ISSUE SCREEN (Stage 4 detail) ── -->
+    <div class="screen" id="scr-stores-issue">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Issue item</p>
+        <button class="btn btn-s btn-sm" onclick="goTo('scr-stores','stores')">Back</button>
+      </div>
+      <p class="ss">Stage 4 — Stores requisition</p>
+      <div class="card" id="issue-job-summary"></div>
+      <div class="card" id="issue-items-card">
+        <div class="card-title">Items to issue</div>
+        <div id="issue-items-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Photo 1 — Issue from stores</div>
+        <div class="notice notice-info">Photograph item at stores counter. Serial number must be clearly visible. GPS, date/time, REQ number and serial number will be stamped.</div>
+        <label>Serial number of item being issued</label>
+        <input type="text" id="issueSerial" placeholder="Serial number (burned into stamp)">
+        <div class="pz mt8" id="pz-issued-at-stores" onclick="openNativeCam('issued_at_stores')">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity=".5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity=".5"/></svg>
+          <p id="pzt-issued-at-stores">Tap to photograph item at counter</p>
+        </div>
+        <img class="pthumb" id="pt-issued-at-stores" src="" alt="">
+      </div>
+      <div class="card">
+        <div class="card-title">Manual requisition number <span class="badge badge-gray" style="font-size:9px;">Parallel running</span></div>
+        <input type="text" id="issueManualReq" placeholder="Pre-printed requisition number">
+      </div>
+      <button class="btn btn-p mt11" onclick="confirmIssue()">Confirm issue &amp; record handover</button>
+    </div>
+
+    <!-- ── STORES CHECK-IN SCREEN (Stage 4 return) ── -->
+    <div class="screen" id="scr-stores-checkin">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Check in returned asset</p>
+        <button class="btn btn-s btn-sm" onclick="goTo('scr-stores','stores')">Back</button>
+      </div>
+      <p class="ss">Stage 4 — Asset returned to stores</p>
+      <div class="card" id="checkin-job-summary"></div>
+      <div class="card">
+        <div class="card-title">Condition assessment</div>
+        <p style="font-size:12px;color:var(--tx2);margin-bottom:10px;">Verify serial number matches the removal photo before accepting.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="role-btn" id="cond-op-btn" onclick="setCondition('operational')">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M6 10l3 3 5-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="role-btn-label" style="color:var(--success);">Operational</div>
+            <div class="role-btn-sub">Redeployable</div>
+          </button>
+          <button class="role-btn" id="cond-dmg-btn" onclick="setCondition('damaged')">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v4M10 13v1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <div class="role-btn-label" style="color:var(--danger);">Damaged</div>
+            <div class="role-btn-sub">Write-off candidate</div>
+          </button>
+        </div>
+        <div id="damage-notes-wrap" style="display:none;margin-top:10px;">
+          <label>Damage description</label>
+          <textarea id="damageNotes" placeholder="Describe the damage or fault observed…" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Photo 5 — Returned to stores</div>
+        <div class="notice notice-info">Photograph the returned asset. Condition must be visible. GPS, date/time, JCN, REQ number and stores officer name will be stamped. This is the asset derecognition photo.</div>
+        <div id="checkin-compare" style="display:none;margin-bottom:10px;">
+          <p style="font-size:11px;color:var(--tx2);margin-bottom:6px;">Comparison — on-site removal photo vs this check-in</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <div style="border-radius:var(--rs);overflow:hidden;aspect-ratio:4/3;position:relative;">
+              <img id="checkin-removal-thumb" src="" style="width:100%;height:100%;object-fit:cover;" alt="">
+              <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:white;font-size:9px;padding:3px 6px;text-align:center;">On-site removal</div>
+            </div>
+            <div style="border-radius:var(--rs);overflow:hidden;aspect-ratio:4/3;position:relative;background:var(--bg2);display:flex;align-items:center;justify-content:center;" id="checkin-new-thumb-wrap">
+              <span style="font-size:10px;color:var(--tx3);text-align:center;padding:8px;">Check-in photo appears here</span>
+            </div>
+          </div>
+        </div>
+        <div class="pz" id="pz-returned-to-stores" onclick="openNativeCam('returned_to_stores')">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity=".5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity=".5"/></svg>
+          <p id="pzt-returned-to-stores">Tap to photograph returned asset</p>
+        </div>
+        <img class="pthumb" id="pt-returned-to-stores" src="" alt="">
+      </div>
+      <button class="btn btn-ok mt11" onclick="confirmCheckin()">Complete check-in to stores</button>
+    </div>
+
+    <!-- ── EXECUTION (Stage 5) ── -->
+    <div class="screen" id="scr-execute">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Execution</p>
+        <button class="btn btn-s btn-sm" onclick="backToJob()">Back</button>
+      </div>
+      <p class="ss">Stage 5 — On-site execution &amp; completion</p>
+      <div class="card" id="exec-job-summary"></div>
+
+      <!-- Photo sequence indicator -->
+      <div class="card" id="exec-photo-sequence">
+        <div class="card-title">Photo sequence <span id="exec-photo-progress" class="badge badge-brand" style="float:right;"></span></div>
+        <div id="exec-photo-steps"></div>
+      </div>
+
+      <!-- Completion report -->
+      <div class="card">
+        <div class="card-title">Completion report</div>
+        <label>Outcome</label>
+        <select id="execOutcome">
+          <option value="">Select outcome…</option>
+          <option value="complete">Completed as planned</option>
+          <option value="partial">Partial completion — additional work required</option>
+          <option value="additional">Additional work identified — child job required</option>
+        </select>
+        <label>Completion notes</label>
+        <textarea id="execNotes" placeholder="Describe the work carried out, observations, any issues encountered…" rows="4"></textarea>
+        <div id="child-job-note" style="display:none;" class="notice notice-warn mt8">A child job card will be created for the additional work after submission. The current job closes for its original scope.</div>
+      </div>
+
+      <div class="btn-row mt11">
+        <button class="btn btn-s" onclick="backToJob()">Cancel</button>
+        <button class="btn btn-p" onclick="submitExecution()">Submit completion report</button>
+      </div>
+    </div>
+
+    <!-- ── SIGN-OFF (Stage 6) ── -->
+    <div class="screen" id="scr-signoff">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Sign-off &amp; closure</p>
+        <button class="btn btn-s btn-sm" onclick="backToJob()">Back</button>
+      </div>
+      <p class="ss">Stage 6 — Final review and job closure</p>
+      <div class="card" id="signoff-summary"></div>
+      <div class="card" id="signoff-completion">
+        <div class="card-title">Completion report</div>
+        <div id="signoff-completion-content"></div>
+      </div>
+      <div class="card" id="signoff-stores-check" style="display:none;">
+        <div class="card-title">Stores loop verification</div>
+        <div id="signoff-stores-status"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Sign-off decision</div>
+        <label>Sign-off notes <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <textarea id="signoffNotes" placeholder="Any notes on the completed job…" rows="3"></textarea>
+        <div id="signoff-rework-wrap" style="display:none;margin-top:10px;">
+          <label>Rework instructions</label>
+          <textarea id="reworkNotes" placeholder="Describe what needs to be corrected…" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="btn-row mt11" id="signoff-btns"></div>
+    </div>
+
+    <!-- ── JOB DETAIL (shared, populated dynamically) ── -->
+    <div class="screen" id="scr-job-detail">
+      <div id="job-detail-content">
+        <p class="ss">Loading…</p>
+      </div>
+    </div>
+
+    <!-- ── INVESTIGATION (Stage 2) ── -->
+    <div class="screen" id="scr-investigate">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Investigation</p>
+        <button class="btn btn-s btn-sm" onclick="backToJob()">Back</button>
+      </div>
+      <p class="ss">Stage 2 — On-site investigation report</p>
+      <div class="step-bar" id="inv-step-bar"></div>
+
+      <div class="card" id="inv-job-summary"></div>
+
+      <div class="card">
+        <div class="card-title">Arrival confirmation</div>
+        <div class="notice notice-info" id="inv-gps-status">Acquiring GPS — confirms on-site presence…</div>
+        <div id="inv-gps-flag-row" style="display:none;">
+          <div class="toggle-row">
+            <span style="font-size:13px;">Flag GPS as unreliable</span>
+            <label class="toggle"><input type="checkbox" id="invGpsFlag" onchange="toggleInvGpsFlag()"><span class="tslider"></span></label>
+          </div>
+          <div id="inv-gps-manual" style="display:none;">
+            <label>Manual coordinate or address</label>
+            <input type="text" id="invGpsManual" placeholder="e.g. -24.76543, 28.92341 or address">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Fault findings</div>
+        <label>Fault confirmed?</label>
+        <select id="faultConfirmed">
+          <option value="">Select…</option>
+          <option value="confirmed">Confirmed — fault found as reported</option>
+          <option value="partial">Partial — related but different fault found</option>
+          <option value="not_found">Not found — no fault detected on site</option>
+          <option value="referred">Referred — requires specialist or different team</option>
+        </select>
+        <label>Investigation findings</label>
+        <textarea id="invFindings" placeholder="Describe what you found on site — cause of fault, equipment affected, extent of damage…" rows="4"></textarea>
+        <label>Equipment / asset affected</label>
+        <input type="text" id="invEquipment" placeholder="Asset description, type, location on site">
+        <label>Serial number of affected asset <span style="color:var(--tx3);font-weight:400;">(if visible)</span></label>
+        <input type="text" id="invSerial" placeholder="Optional — photo is primary evidence">
+      </div>
+
+      <div class="card">
+        <div class="card-title">Asset type &amp; installation type</div>
+        <label>Asset type</label>
+        <select id="invAssetType" onchange="updateAssetType()">
+          <option value="">Select asset type…</option>
+          <option value="point">Point asset — transformer, mini-sub, streetlight, meter, switchgear</option>
+          <option value="linear">Linear asset — cable (HV or LV)</option>
+          <option value="overhead">Overhead line</option>
+          <option value="outage">General outage — no physical replacement</option>
+        </select>
+        <div id="inv-install-type-row" style="display:none;margin-top:12px;">
+          <label>Installation type</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+            <button class="role-btn" id="itype-new-btn" onclick="setInvInstallType('new')">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4" opacity=".4"/><path d="M10 7v6M7 10h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              <div class="role-btn-label">New installation</div>
+              <div class="role-btn-sub">No existing asset removed</div>
+            </button>
+            <button class="role-btn" id="itype-rep-btn" onclick="setInvInstallType('replacement')">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 13l-3-3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/><path d="M15 7l3 3-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 10h16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              <div class="role-btn-label">Replacing existing</div>
+              <div class="role-btn-sub">Existing asset removed &amp; returned</div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Investigation photo</div>
+        <p style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Photograph the fault as found. <span id="inv-photo-instruction">GPS, date/time and JCN will be stamped.</span></p>
+        <div class="pz" id="pz-inv-fault" onclick="openNativeCam('inv_fault')">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity=".5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity=".5"/></svg>
+          <p id="pzt-inv-fault">Tap to photograph fault as found</p>
+        </div>
+        <img class="pthumb" id="pt-inv-fault" src="" alt="">
+      </div>
+
+      <div class="card">
+        <div class="card-title">Staff shortage declaration</div>
+        <div class="toggle-row">
+          <div>
+            <div style="font-size:13px;font-weight:500;">I am also the technician for this job</div>
+            <div style="font-size:11px;color:var(--tx2);margin-top:2px;">All approvals will escalate to Divisional Manager</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="staffShortage"><span class="tslider"></span></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Material required?</div>
+        <p style="font-size:12px;color:var(--tx2);margin-bottom:10px;">This determines the approval track.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="role-btn" id="track-a-btn" onclick="setTrack('A')">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="role-btn-label" style="color:var(--success);">Track A</div>
+            <div class="role-btn-sub">No material needed</div>
+          </button>
+          <button class="role-btn" id="track-b-btn" onclick="setTrack('B')">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="3" y="8" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M7 8V6a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <div class="role-btn-label" style="color:var(--brand);">Track B</div>
+            <div class="role-btn-sub">Material from stores required</div>
+          </button>
+        </div>
+        <div id="track-b-items" style="display:none;margin-top:12px;">
+          <div class="notice notice-info">List the required items. The Divisional Manager will approve the job card and stores requisition together.</div>
+          <div id="req-items-list" style="margin-bottom:8px;"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;">
+            <div><label>Stock code</label><input type="text" id="reqStockCode" placeholder="e.g. TR-100KVA"></div>
+            <div><label>Description</label><input type="text" id="reqDesc" placeholder="Item description"></div>
+            <button class="btn btn-s btn-sm" style="margin-top:auto;height:42px;" onclick="addReqItem()">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row mt11">
+        <button class="btn btn-s" onclick="backToJob()">Cancel</button>
+        <button class="btn btn-p" onclick="submitInvestigation()">Submit investigation</button>
+      </div>
+    </div>
+
+    <!-- ── APPROVAL (Stage 3 — Technician) ── -->
+    <div class="screen" id="scr-approve-tech">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Review &amp; approve</p>
+        <button class="btn btn-s btn-sm" onclick="backToJob()">Back</button>
+      </div>
+      <p class="ss">Stage 3 — Technician approval</p>
+      <div class="card" id="approve-tech-summary"></div>
+      <div class="card" id="approve-tech-investigation">
+        <div class="card-title">Investigation report</div>
+        <div id="approve-tech-inv-content"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Your decision</div>
+        <label>Review notes <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <textarea id="techApproveNotes" placeholder="Any notes on the investigation or approval…" rows="3"></textarea>
+        <div id="track-b-escalate-note" style="display:none;" class="notice notice-info mt8">
+          This job requires stores material (Track B). You cannot approve this directly — it must be escalated to the Divisional Manager.
+        </div>
+      </div>
+      <div class="btn-row mt11" id="tech-approve-btns"></div>
+    </div>
+
+    <!-- ── APPROVAL (Stage 3 — DM) ── -->
+    <div class="screen" id="scr-approve-dm">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">DM approval</p>
+        <button class="btn btn-s btn-sm" onclick="backToJob()">Back</button>
+      </div>
+      <p class="ss">Stage 3 — Divisional Manager approval</p>
+      <div class="card" id="approve-dm-summary"></div>
+      <div class="card" id="approve-dm-investigation">
+        <div class="card-title">Investigation report</div>
+        <div id="approve-dm-inv-content"></div>
+      </div>
+      <div class="card" id="approve-dm-requisition" style="display:none;">
+        <div class="card-title">Stores requisition</div>
+        <div id="approve-dm-req-content"></div>
+        <label style="margin-top:10px;">Manual requisition number <span class="badge badge-gray" style="font-size:9px;">Parallel running</span></label>
+        <input type="text" id="dmManualReq" placeholder="Pre-printed paper requisition number">
+      </div>
+      <div class="card">
+        <div class="card-title">Your decision</div>
+        <label>Notes <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <textarea id="dmApproveNotes" placeholder="Approval conditions, notes, or rejection reason…" rows="3"></textarea>
+      </div>
+      <div class="btn-row mt11" id="dm-approve-btns"></div>
+    </div>
+
+    <!-- ── RECORDS ── -->
+    <div class="screen" id="scr-records">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Records</p>
+        <button class="btn btn-s btn-sm" onclick="goHome()">&#8592; Dashboard</button>
+      </div>
+      <p class="ss">All jobs — search and filter</p>
+      <div style="margin-bottom:10px;">
+        <input type="search" id="jobSearch" placeholder="Search by JCN, location, artisan…" oninput="searchJobs(this.value)">
+      </div>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px;">
+        <button class="badge badge-brand" style="cursor:pointer;border:none;white-space:nowrap;" onclick="recFilter('all')">All</button>
+        <button class="badge badge-warn" style="cursor:pointer;border:none;white-space:nowrap;" onclick="recFilter('open')">Open</button>
+        <button class="badge badge-success" style="cursor:pointer;border:none;white-space:nowrap;" onclick="recFilter('closed')">Closed</button>
+        <button class="badge badge-danger" style="cursor:pointer;border:none;white-space:nowrap;" onclick="recFilter('critical')">Critical</button>
+      </div>
+      <div class="card" id="records-list">
+        <div class="empty">
+          <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 10h16M4 14h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+          <p>No records yet</p>
+          <small>Log a job to get started</small>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end screen-wrap -->
+
+  <!-- ── BOTTOM NAVIGATION (role-specific, built dynamically) ── -->
+  <nav class="bot-nav" id="botNav"></nav>
+
+  <!-- ── LOGOUT MODAL ── -->
+  <div id="logoutModal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:300;align-items:flex-end;justify-content:center;">
+    <div style="background:var(--bg);border-radius:var(--r) var(--r) 0 0;padding:20px;width:100%;max-width:480px;animation:slideUp .2s ease;">
+      <div style="font-size:16px;font-weight:500;margin-bottom:4px;">Switch role or log out</div>
+      <div style="font-size:13px;color:var(--tx2);margin-bottom:16px;">Logged in as <strong id="logout-name"></strong> (<span id="logout-role"></span>)</div>
+      <div class="notice notice-warn" style="margin-bottom:14px;">Your locally saved records will remain on this device. Nothing will be lost.</div>
+      <button class="btn btn-danger" onclick="confirmLogout()">Log out &amp; return to role selection</button>
+      <button class="btn btn-s mt8" onclick="hideLogout()">Cancel — stay logged in</button>
+    </div>
+  </div>
+
+</div><!-- end mainApp -->
+
+<input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none;" onchange="handlePhoto(event)">
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+const SK = 'fms_jobs_v1';
+const UK = 'fms_users_v1';
+const SK_SESSION = 'fms_session_v1';
+
+let APP = {
+  user: null,           // {name, role}
+  jobs: [],
+  users: [],
+  online: navigator.onLine,
+  gps: null,
+  gpsErr: false,
+  currentScreen: 'dashboard',
+  currentCamera: null,
+  selectedRole: null,
+  gpsWatcher: null
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+const PRIORITY_META = {
+  critical: { label: 'Critical', badge: 'badge-critical', color: '#A32D2D' },
+  high:     { label: 'High',     badge: 'badge-warn',     color: '#854F0B' },
+  medium:   { label: 'Medium',   badge: 'badge-medium',   color: '#185FA5' },
+  low:      { label: 'Low',      badge: 'badge-low',      color: '#3B6D11' }
+};
+
+const STATUS_META = {
+  draft:               { label: 'Draft',              color: '#888' },
+  open:                { label: 'Open',               color: '#185FA5' },
+  investigating:       { label: 'Investigating',      color: '#0F6E56' },
+  pending_approval:    { label: 'Pending approval',   color: '#854F0B' },
+  pending_dm_approval: { label: 'Pending DM approval',color: '#854F0B' },
+  approved:            { label: 'Approved',           color: '#3B6D11' },
+  in_progress:         { label: 'In progress',        color: '#0F6E56' },
+  pending_signoff:     { label: 'Pending sign-off',   color: '#854F0B' },
+  closed:              { label: 'Closed',             color: '#3B6D11' },
+  rejected:            { label: 'Rejected',           color: '#A32D2D' }
+};
+
+const FAULT_LABELS = {
+  transformer_fault:'Transformer fault', mini_substation_failure:'Mini-substation failure',
+  cable_fault_hv:'Cable fault (HV)', cable_fault_lv:'Cable fault (LV)',
+  overhead_line_fault:'Overhead line fault', streetlight_fault:'Streetlight fault',
+  metering_fault:'Metering fault', switchgear_fault:'Switchgear fault',
+  protection_fault:'Protection-related fault', general_outage:'General outage',
+  illegal_connection:'Illegal connection / tampering',
+  vegetation_encroachment:'Vegetation encroachment', vandalism_theft:'Vandalism / theft',
+  planned_maintenance:'Planned maintenance', other:'Other'
+};
+
+const SOURCE_LABELS = {
+  resident_complaint:'Resident complaint', dm_instruction:'DM instruction',
+  internal_inspection:'Internal inspection', planned_maintenance:'Planned maintenance'
+};
+
+// Nav definitions per role
+const NAV_CONFIG = {
+  call_centre: [
+    { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
+    { id:'new', label:'New job', screen:'scr-new' },
+    { id:'records', label:'Records', screen:'scr-records' }
+  ],
+  artisan: [
+    { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
+    { id:'myjobs', label:'My jobs', screen:'scr-myjobs' },
+    { id:'records', label:'Records', screen:'scr-records' }
+  ],
+  technician: [
+    { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
+    { id:'approvals', label:'Approvals', screen:'scr-approvals', badge:'cnt-approval' },
+    { id:'new', label:'New job', screen:'scr-new' },
+    { id:'records', label:'Records', screen:'scr-records' }
+  ],
+  stores: [
+    { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
+    { id:'stores', label:'Stores', screen:'scr-stores' },
+    { id:'records', label:'Records', screen:'scr-records' }
+  ],
+  manager: [
+    { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
+    { id:'approvals', label:'Approvals', screen:'scr-approvals', badge:'cnt-approval' },
+    { id:'new', label:'New job', screen:'scr-new' },
+    { id:'stores', label:'Stores', screen:'scr-stores' },
+    { id:'records', label:'Records', screen:'scr-records' }
+  ],
+  senior_manager: [
+    { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
+    { id:'new', label:'New job', screen:'scr-new' },
+    { id:'stores', label:'Stores', screen:'scr-stores' },
+    { id:'records', label:'Records', screen:'scr-records' }
+  ],
+  read_only: [
+    { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
+    { id:'records', label:'Records', screen:'scr-records' }
+  ]
+};
+
+const NAV_ICONS = {
+  dashboard: '<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="1.4"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="1.4"/>',
+  new: '<rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  myjobs: '<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.4"/><path d="M9 5a2 2 0 002 2h2a2 2 0 002-2" stroke="currentColor" stroke-width="1.4"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  approvals: '<path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.4"/>',
+  stores: '<rect x="3" y="8" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M8 8V6a4 4 0 018 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  records: '<path d="M4 6h16M4 10h16M4 14h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
+};
+
+const ROLE_LABELS = {
+  call_centre:'Call centre', artisan:'Artisan', technician:'Technician',
+  stores:'Stores officer', manager:'Div. Manager', senior_manager:'Sr. Manager', read_only:'Read only'
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STORAGE
+// ─────────────────────────────────────────────────────────────────────────────
+function load() {
+  try { const j=localStorage.getItem(SK); if(j) APP.jobs=JSON.parse(j); } catch(e){}
+  try { const u=localStorage.getItem(UK); if(u) APP.users=JSON.parse(u); } catch(e){}
+  try { const s=localStorage.getItem(SK_SESSION); if(s) APP.user=JSON.parse(s); } catch(e){}
+}
+function save() {
+  try { localStorage.setItem(SK, JSON.stringify(APP.jobs)); } catch(e){}
+}
+function saveSession() {
+  try { localStorage.setItem(SK_SESSION, JSON.stringify(APP.user)); } catch(e){}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GPS
+// ─────────────────────────────────────────────────────────────────────────────
+function startGPS(onSuccess, onError) {
+  if (!navigator.geolocation) { if(onError) onError('GPS not available'); return; }
+  // Stage 1: fast coarse fix (network-assisted, 5s timeout) — gets a result quickly
+  // even in poor signal. Stage 2: high-accuracy fix attempted in background.
+  var settled = false;
+  function handlePos(pos, highAccuracy) {
+    var gps = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy), timestamp: new Date().toISOString() };
+    APP.gps = gps;
+    APP.gpsErr = false;
+    if (!settled || highAccuracy) { settled = true; if(onSuccess) onSuccess(gps); }
+  }
+  function handleErr(err) {
+    if (!settled) { settled = true; APP.gpsErr = true; if(onError) onError(err.message); }
+  }
+  // Fast coarse fix first — low accuracy, 5s timeout, uses cached/network position
+  navigator.geolocation.getCurrentPosition(
+    pos => handlePos(pos, false),
+    handleErr,
+    { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+  );
+  // High-accuracy fix in background — updates if it arrives within 12s
+  setTimeout(function() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => handlePos(pos, true),
+      function() {}, // silent fail — coarse fix already delivered
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  }, 500);
+}
+
+function updateGpsStatusUI(elId, gps, err) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (gps) {
+    var accuracy = gps.accuracy;
+    var quality = accuracy <= 20 ? 'High accuracy' : accuracy <= 100 ? 'Good' : 'Coarse';
+    var colour = accuracy <= 20 ? 'notice-success' : accuracy <= 100 ? 'notice-success' : 'notice-warn';
+    el.className = 'notice ' + colour + ' mt8';
+    el.innerHTML = quality + ': ' + gps.lat.toFixed(5) + '°, ' + gps.lng.toFixed(5) + '° (±' + accuracy + 'm)' +
+      (accuracy > 100 ? ' — refining in background…' : '');
+  } else if (err) {
+    el.className = 'notice notice-warn mt8';
+    el.innerHTML = 'GPS unavailable in this area — street address will be used. You can flag and enter manual coordinates below.';
+  } else {
+    el.className = 'notice notice-info mt8';
+    el.innerHTML = 'Getting location… (this is quick — no spinning!)';
+  }
+  const flagRow = document.getElementById('gps-flag-row');
+  if (flagRow && (err || gps)) flagRow.style.display = 'block';
+}
+
+function toggleGpsFlag() {
+  const flagged = document.getElementById('gpsFlagNew').checked;
+  document.getElementById('gps-manual-new').style.display = flagged ? 'block' : 'none';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOGIN
+// ─────────────────────────────────────────────────────────────────────────────
+function selectRole(role) {
+  APP.selectedRole = role;
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('rb-' + role).classList.add('selected');
+}
+
+function login() {
+  const name = document.getElementById('loginName').value.trim();
+  if (!name || !APP.selectedRole) { document.getElementById('loginErr').style.display='block'; return; }
+  APP.user = { name, role: APP.selectedRole, loginAt: new Date().toISOString() };
+  saveSession();
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  initApp();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APP INIT
+// ─────────────────────────────────────────────────────────────────────────────
+function initApp() {
+  buildNav();
+  updateRoleBadge();
+  updateOnlineStatus();
+  updateDashboard();
+  startGPS(
+    gps => updateGpsStatusUI('gps-status-new', gps, null),
+    err => updateGpsStatusUI('gps-status-new', null, err)
+  );
+  populateArtisanDropdowns();
+  setDashboardGreeting();
+}
+
+function buildNav() {
+  const role = APP.user.role;
+  const items = NAV_CONFIG[role] || NAV_CONFIG.read_only;
+  const nav = document.getElementById('botNav');
+  nav.innerHTML = items.map(item => `
+    <button class="nav-btn${item.id==='dashboard'?' active':''}" id="nb-${item.id}" onclick="goTo('${item.screen}','${item.id}')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">${NAV_ICONS[item.id]||NAV_ICONS.records}</svg>
+      ${item.label}${item.badge?'<span class="nav-dot" id="dot-'+item.id+'" style="display:none;"></span>':''}
+    </button>`).join('');
+}
+
+function updateRoleBadge() {
+  document.getElementById('roleBadge').textContent = ROLE_LABELS[APP.user.role] || APP.user.role;
+  document.getElementById('appTitle').textContent = 'FMS — ' + APP.user.name.split(' ')[0];
+}
+
+function setDashboardGreeting() {
+  const h = new Date().getHours();
+  const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('dash-greeting').textContent = greet + ', ' + APP.user.name.split(' ')[0];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────────────────────────────────────
+function goHome() {
+  goTo('scr-dashboard', 'dashboard');
+}
+
+function goTo(screenId, navId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const scr = document.getElementById(screenId);
+  if (scr) scr.classList.add('active');
+  if (navId) {
+    const nb = document.getElementById('nb-' + navId);
+    if (nb) nb.classList.add('active');
+  }
+  APP.currentScreen = screenId;
+  // Show home button on all screens except the dashboard itself
+  var homeBtn = document.getElementById('homeBtn');
+  if (homeBtn) homeBtn.style.display = screenId === 'scr-dashboard' ? 'none' : 'flex';
+  if (screenId === 'scr-myjobs') myJobFilter('active');
+  if (screenId === 'scr-stores') storesTab('pending');
+  if (screenId === 'scr-approvals') renderApprovalQueue();
+  if (screenId === 'scr-new') {
+    startGPS(
+      gps => updateGpsStatusUI('gps-status-new', gps, null),
+      err => updateGpsStatusUI('gps-status-new', null, err)
+    );
+  }
+  if (screenId === 'scr-dashboard') updateDashboard();
+  if (screenId === 'scr-records') recFilter('all');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ONLINE STATUS
+// ─────────────────────────────────────────────────────────────────────────────
+window.addEventListener('online', () => { APP.online=true; updateOnlineStatus(); });
+window.addEventListener('offline', () => { APP.online=false; updateOnlineStatus(); });
+function updateOnlineStatus() {
+  const dot=document.getElementById('sdot'), lbl=document.getElementById('syncLbl'), banner=document.getElementById('offlineBanner');
+  if (APP.online) { dot.className='sdot'; lbl.textContent='Online'; banner.style.display='none'; }
+  else { dot.className='sdot off'; lbl.textContent='Offline'; banner.style.display='block'; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOB GENERATION
+// ─────────────────────────────────────────────────────────────────────────────
+function genJCN() {
+  const y = new Date().getFullYear();
+  const n = String(APP.jobs.length + 1).padStart(4, '0');
+  return 'JC-' + y + '-' + n;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBMIT NEW JOB
+// ─────────────────────────────────────────────────────────────────────────────
+function submitNewJob() {
+  const source = document.getElementById('jobSource').value;
+  const category = document.getElementById('faultCategory').value;
+  const priority = document.getElementById('priority').value;
+  const desc = document.getElementById('faultDesc').value.trim();
+  const address = document.getElementById('streetAddress').value.trim();
+  const artisan = document.getElementById('assignArtisan').value;
+
+  if (!source || !category || !priority || !address) {
+    alert('Please fill in: Job source, Fault category, Priority, and Street address.'); return;
+  }
+
+  const gpsFlag = document.getElementById('gpsFlagNew').checked;
+  const gpsManual = document.getElementById('gpsManualNew').value.trim();
+
+  const job = {
+    id: 'JOB-' + Date.now(),
+    jcn: genJCN(),
+    crn: source === 'resident_complaint' ? 'CRN-' + new Date().getFullYear() + '-' + String(APP.jobs.length+1).padStart(4,'0') : null,
+    manualJcn: document.getElementById('manualJcn').value.trim() || null,
+    freeRef: document.getElementById('freeRef').value.trim() || null,
+    source, faultCategory: category, priority,
+    faultDescription: desc,
+    status: 'open',
+    track: null,
+    staffShortage: false,
+    loggedBy: APP.user.name,
+    loggedByRole: APP.user.role,
+    responsibleArtisan: artisan || null,
+    supportingArtisans: [],
+    location: {
+      streetAddress: address,
+      accountNumber: document.getElementById('accountNumber').value.trim() || null,
+      siteCode: document.getElementById('siteCode').value.trim() || null,
+      gps: {
+        intake: APP.gps ? { ...APP.gps, flagged: gpsFlag, manualOverride: gpsFlag ? gpsManual : null } : null,
+        arrival: null, signoff: null
+      }
+    },
+    complainant: {
+      name: document.getElementById('compName').value.trim() || null,
+      contact: document.getElementById('compContact').value.trim() || null,
+      address: document.getElementById('compAddress').value.trim() || null
+    },
+    timestamps: { logged: new Date().toISOString(), dispatched: artisan ? new Date().toISOString() : null },
+    investigation: { findings: null, materialRequired: null, requiredItems: [], photos: [] },
+    requisition: { systemReqNumber: null, manualReqNumber: null, financialSystemNumber: null, items: [], partialIssue: false },
+    photos: [], completion: { report: null, outcome: null, photos: [] },
+    signoff: { notes: null }, amendments: [],
+    activityLog: [{ action: 'Job logged', by: APP.user.name, at: new Date().toISOString() }]
+  };
+
+  APP.jobs.unshift(job);
+  save();
+
+  // Reset form
+  ['jobSource','faultCategory','priority','faultDesc','streetAddress','accountNumber','siteCode','manualJcn','freeRef','compName','compContact','compAddress','assignArtisan'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('gpsFlagNew').checked = false;
+  document.getElementById('gps-manual-new').style.display = 'none';
+  document.getElementById('gps-flag-row').style.display = 'none';
+
+  alert('Job logged.\nJCN: ' + job.jcn + (job.crn ? '\nCRN: ' + job.crn : '') + (APP.online ? '\nSynced.' : '\nSaved offline.'));
+  goTo('scr-dashboard', 'dashboard');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────────────────────────────────────────
+function updateDashboard() {
+  const today = new Date().toDateString();
+  const open = APP.jobs.filter(j => j.status !== 'closed' && j.status !== 'rejected');
+  const approval = APP.jobs.filter(j => ['pending_approval','pending_dm_approval'].includes(j.status));
+  const signoff = APP.jobs.filter(j => j.status === 'pending_signoff');
+  const recon = APP.jobs.filter(j => j.requisition && j.requisition.systemReqNumber && !j.requisition.financialSystemNumber);
+  const todayJobs = APP.jobs.filter(j => new Date(j.timestamps.logged).toDateString() === today);
+  const closedToday = APP.jobs.filter(j => j.status === 'closed' && j.timestamps.closed && new Date(j.timestamps.closed).toDateString() === today);
+
+  document.getElementById('cnt-open').textContent = open.length;
+  document.getElementById('cnt-approval').textContent = approval.length;
+  document.getElementById('cnt-signoff').textContent = signoff.length;
+  document.getElementById('cnt-recon').textContent = recon.length;
+  document.getElementById('cnt-today').textContent = todayJobs.length;
+  document.getElementById('cnt-closed-today').textContent = closedToday.length;
+
+  // Nav badge dots
+  const approvalDot = document.getElementById('dot-approvals');
+  if (approvalDot) approvalDot.style.display = approval.length > 0 ? 'block' : 'none';
+
+  renderJobList('jobs-list', open.sort((a,b) => {
+    const pri = {critical:0,high:1,medium:2,low:3};
+    return (pri[a.priority]||9) - (pri[b.priority]||9);
+  }));
+}
+
+function filterJobs(type) { goTo('scr-dashboard','dashboard'); }
+function setFilter(f) { /* filter logic will be built in Stage detail pass */ }
+function goToRecon() { goTo('scr-stores','stores'); }
+function myJobFilter(f) {}
+// storesTab defined in Stage 4 section
+function recFilter(f) {
+  let jobs;
+  if (f === 'open') jobs = APP.jobs.filter(j => !['closed','rejected'].includes(j.status));
+  else if (f === 'closed') jobs = APP.jobs.filter(j => j.status === 'closed');
+  else if (f === 'critical') jobs = APP.jobs.filter(j => j.priority === 'critical');
+  else jobs = [...APP.jobs];
+  renderJobList('records-list', jobs);
+}
+function searchJobs(q) {
+  if (!q) { recFilter('all'); return; }
+  const lq = q.toLowerCase();
+  const results = APP.jobs.filter(j =>
+    (j.jcn && j.jcn.toLowerCase().includes(lq)) ||
+    (j.location && j.location.streetAddress && j.location.streetAddress.toLowerCase().includes(lq)) ||
+    (j.responsibleArtisan && j.responsibleArtisan.toLowerCase().includes(lq)) ||
+    (j.faultDescription && j.faultDescription.toLowerCase().includes(lq)) ||
+    (j.manualJcn && j.manualJcn.toLowerCase().includes(lq))
+  );
+  renderJobList('records-list', results);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOB LIST RENDERING
+// ─────────────────────────────────────────────────────────────────────────────
+function renderJobList(containerId, jobs) {
+  const el = document.getElementById(containerId);
+  if (!jobs || !jobs.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.4"/></svg></div><p>No jobs</p></div>';
+    return;
+  }
+  el.innerHTML = jobs.map(j => {
+    const pm = PRIORITY_META[j.priority] || {label:'?',badge:'badge-gray',color:'#888'};
+    const sm = STATUS_META[j.status] || {label:j.status,color:'#888'};
+    const age = Math.floor((Date.now() - new Date(j.timestamps.logged)) / 3600000);
+    const ageStr = age < 1 ? 'Just now' : age < 24 ? age + 'h ago' : Math.floor(age/24) + 'd ago';
+    return `<div class="job-item" onclick="openJob('${j.id}')">
+      <div class="job-icon" style="background:${pm.color}20;border:0.5px solid ${pm.color}40;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${pm.color}" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2" stroke-linecap="round"/></svg>
+      </div>
+      <div class="job-body">
+        <div class="job-title">${FAULT_LABELS[j.faultCategory]||j.faultCategory}</div>
+        <div class="job-sub">${j.location.streetAddress} · ${j.jcn}</div>
+        <div class="job-meta">${j.responsibleArtisan||'Unassigned'} · ${ageStr}</div>
+      </div>
+      <div class="job-right">
+        <span class="badge ${pm.badge}" style="margin-bottom:4px;">${pm.label}</span><br>
+        <span class="status-badge" style="background:${sm.color}20;color:${sm.color};font-size:10px;">${sm.label}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openJob(id) {
+  const j = APP.jobs.find(x => x.id === id);
+  if (!j) return;
+  const pm = PRIORITY_META[j.priority] || {label:'?',badge:'badge-gray',color:'#888'};
+  const sm = STATUS_META[j.status] || {label:j.status,color:'#888'};
+  const gps = j.location.gps && j.location.gps.intake;
+  document.getElementById('job-detail-content').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div>
+        <div class="sh" style="font-size:16px;margin-bottom:2px;">${FAULT_LABELS[j.faultCategory]||j.faultCategory}</div>
+        <span class="badge ${pm.badge}">${pm.label}</span>
+        <span class="status-badge" style="background:${sm.color}20;color:${sm.color};margin-left:4px;">${sm.label}</span>
+      </div>
+      <button class="btn btn-s btn-sm" onclick="goTo('scr-dashboard','dashboard')">Back</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Job details</div>
+      <div class="ir"><span class="l">JCN</span><span class="v">${j.jcn}</span></div>
+      ${j.crn?`<div class="ir"><span class="l">CRN</span><span class="v">${j.crn}</span></div>`:''}
+      ${j.manualJcn?`<div class="ir"><span class="l">Manual JCN</span><span class="v">${j.manualJcn}</span></div>`:''}
+      <div class="ir"><span class="l">Source</span><span class="v">${SOURCE_LABELS[j.source]||j.source}</span></div>
+      <div class="ir"><span class="l">Location</span><span class="v">${j.location.streetAddress}</span></div>
+      ${j.location.siteCode?`<div class="ir"><span class="l">Site code</span><span class="v">${j.location.siteCode}</span></div>`:''}
+      <div class="ir"><span class="l">Artisan</span><span class="v">${j.responsibleArtisan||'Unassigned'}</span></div>
+      <div class="ir"><span class="l">Logged by</span><span class="v">${j.loggedBy}</span></div>
+      <div class="ir"><span class="l">Logged</span><span class="v">${new Date(j.timestamps.logged).toLocaleString('en-ZA')}</span></div>
+      ${gps?`<div class="ir"><span class="l">GPS</span><span class="v" style="font-family:monospace;font-size:12px;">${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}${gps.flagged?' ⚑':''}</span></div>`:''}
+      ${j.faultDescription?`<div class="ir"><span class="l">Description</span><span class="v">${j.faultDescription}</span></div>`:''}
+    </div>
+    ${j.complainant&&j.complainant.name?`<div class="card"><div class="card-title">Complainant</div>
+      <div class="ir"><span class="l">Name</span><span class="v">${j.complainant.name}</span></div>
+      <div class="ir"><span class="l">Contact</span><span class="v">${j.complainant.contact||'—'}</span></div>
+    </div>`:''}
+    <div id="job-action-area"></div>
+    <div class="card"><div class="card-title">Activity log</div>
+      ${j.activityLog.map(a=>`<div class="ir"><span class="l">${new Date(a.at).toLocaleDateString('en-ZA')}</span><span class="v">${a.action} · ${a.by}</span></div>`).join('')}
+    </div>`;
+  // render role-appropriate action buttons
+  setTimeout(() => renderJobActions(j), 0);
+  goTo('scr-job-detail', null);
+  APP._currentJobId = j.id;
+}
+
+function renderJobActions(j) {
+  const role = APP.user.role;
+  const status = j.status;
+  let html = '';
+
+  // ARTISAN actions
+  if (role === 'artisan') {
+    if (['open','investigating'].includes(status) && j.responsibleArtisan === APP.user.name) {
+      html += '<button class="btn btn-p mt8" onclick="openInvestigation(\'' + j.id + '\')">Start / update investigation</button>';
+    }
+    if (status === 'approved' || status === 'in_progress') {
+      html += '<button class="btn btn-ok mt8" onclick="openInvestigation(\'' + j.id + '\')">Continue — execution phase</button>';
+    }
+  }
+
+  // TECHNICIAN actions
+  if (role === 'technician' || (role === 'artisan' && j.staffShortage)) {
+    if (status === 'pending_approval') {
+      html += '<button class="btn btn-warn mt8" onclick="openTechApproval(\'' + j.id + '\')">Review &amp; approve / escalate</button>';
+    }
+    if (status === 'pending_signoff') {
+      html += '<button class="btn btn-ok mt8" onclick="openSignoff(\'' + j.id + '\')">Review &amp; sign off</button>';
+    }
+  }
+
+  // DM / MANAGER actions
+  if (['manager','senior_manager'].includes(role) || (j.staffShortage && role === 'technician')) {
+    if (status === 'pending_dm_approval') {
+      html += '<button class="btn btn-warn mt8" onclick="openDMApproval(\'' + j.id + '\')">DM approval required</button>';
+    }
+    if (status === 'pending_signoff' && j.staffShortage) {
+      html += '<button class="btn btn-ok mt8" onclick="openSignoff(\'' + j.id + '\')">Sign off (staff shortage escalation)</button>';
+    }
+  }
+
+  // CALL CENTRE — can always see status, no action buttons
+  if (!html && ['open','investigating','approved','in_progress'].includes(status)) {
+    html = '<div class="notice notice-info">Job is in progress. No action required from your role at this stage.</div>';
+  }
+  if (!html && status === 'closed') {
+    html = '<div class="notice notice-success">This job is closed.</div>';
+  }
+  if (!html && status === 'rejected') {
+    html = '<div class="notice notice-danger">This job was rejected. A site visit is required before resubmission.</div>';
+  }
+
+  const area = document.getElementById('job-action-area');
+  if (area) area.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ARTISAN DROPDOWNS
+// ─────────────────────────────────────────────────────────────────────────────
+function populateArtisanDropdowns() {
+  const sel = document.getElementById('assignArtisan');
+  // Demo artisans — will be replaced by user management module
+  const demoArtisans = ['Sipho Nkosi', 'Bongani Dlamini', 'Themba Mokoena', 'Lerato Sithole'];
+  demoArtisans.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+// Source → show/hide complainant card
+document.getElementById('jobSource').addEventListener('change', function() {
+  document.getElementById('complainant-card').style.display = this.value === 'resident_complaint' ? 'block' : 'none';
+});
+document.getElementById('complainant-card').style.display = 'none';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NAVIGATION HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function backToJob() {
+  if (APP._currentJobId) openJob(APP._currentJobId);
+  else goTo('scr-dashboard','dashboard');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAGE 2 — INVESTIGATION
+// ─────────────────────────────────────────────────────────────────────────────
+let INV = { track: null, installType: null, reqItems: [], gps: null, gpsErr: false };
+
+function openInvestigation(jobId) {
+  APP._currentJobId = jobId;
+  const j = APP.jobs.find(x => x.id === jobId);
+  if (!j) return;
+  INV = { track: j.track, installType: j.installType, reqItems: j.requisition ? [...(j.requisition.items||[])] : [], gps: null, gpsErr: false };
+
+  // Summary card
+  const pm = PRIORITY_META[j.priority]||{label:'?',badge:'badge-gray'};
+  document.getElementById('inv-job-summary').innerHTML =
+    '<div class="ir"><span class="l">JCN</span><span class="v">' + j.jcn + '</span></div>' +
+    '<div class="ir"><span class="l">Location</span><span class="v">' + j.location.streetAddress + '</span></div>' +
+    '<div class="ir"><span class="l">Fault</span><span class="v">' + (FAULT_LABELS[j.faultCategory]||j.faultCategory) + '</span></div>' +
+    '<div class="ir"><span class="l">Priority</span><span class="v"><span class="badge ' + pm.badge + '">' + pm.label + '</span></span></div>';
+
+  // Pre-fill from existing investigation
+  if (j.investigation && j.investigation.findings) {
+    document.getElementById('invFindings').value = j.investigation.findings || '';
+    document.getElementById('invEquipment').value = j.investigation.equipment || '';
+    document.getElementById('invSerial').value = j.investigation.serialNumber || '';
+    if (j.investigation.faultConfirmed) document.getElementById('faultConfirmed').value = j.investigation.faultConfirmed;
+    if (j.assetType) {
+      document.getElementById('invAssetType').value = j.assetType;
+      document.getElementById('inv-install-type-row').style.display = ['point','linear'].includes(j.assetType) ? 'block' : 'none';
+    }
+  }
+  if (j.staffShortage) document.getElementById('staffShortage').checked = true;
+
+  // Track buttons
+  if (INV.track) setTrack(INV.track, true);
+
+  // Req items
+  renderReqItems();
+
+  // GPS
+  document.getElementById('inv-gps-status').className = 'notice notice-info';
+  document.getElementById('inv-gps-status').textContent = 'Getting location…';
+  document.getElementById('inv-gps-status').className = 'notice notice-info';
+  startGPS(
+    gps => {
+      INV.gps = gps;
+      var acc = gps.accuracy;
+      var q = acc <= 20 ? 'High accuracy' : acc <= 100 ? 'Good' : 'Coarse';
+      var col = acc > 100 ? 'notice notice-warn' : 'notice notice-success';
+      document.getElementById('inv-gps-status').className = col;
+      document.getElementById('inv-gps-status').textContent = q + ': ' + gps.lat.toFixed(5) + '°, ' + gps.lng.toFixed(5) + '° (±' + acc + 'm)' + (acc > 100 ? ' — refining…' : '');
+      document.getElementById('inv-gps-flag-row').style.display = 'block';
+    },
+    err => {
+      INV.gpsErr = true;
+      document.getElementById('inv-gps-status').className = 'notice notice-warn';
+      document.getElementById('inv-gps-status').textContent = 'GPS unavailable in this area — street address will be used. Flag below to enter manual coordinates.';
+      document.getElementById('inv-gps-flag-row').style.display = 'block';
+    }
+  );
+
+  goTo('scr-investigate', null);
+}
+
+function toggleInvGpsFlag() {
+  document.getElementById('inv-gps-manual').style.display = document.getElementById('invGpsFlag').checked ? 'block' : 'none';
+}
+
+function updateAssetType() {
+  const val = document.getElementById('invAssetType').value;
+  const showInstall = val === 'point' || val === 'linear';
+  document.getElementById('inv-install-type-row').style.display = showInstall ? 'block' : 'none';
+  const instr = document.getElementById('inv-photo-instruction');
+  if (val === 'point') instr.textContent = 'For point assets: capture existing asset in position, serial number visible. GPS, date/time and JCN stamped.';
+  else if (val === 'linear') instr.textContent = 'For cables: capture fault as found. GPS, date/time and JCN stamped.';
+  else instr.textContent = 'GPS, date/time and JCN will be stamped.';
+}
+
+function setInvInstallType(type) {
+  INV.installType = type;
+  document.getElementById('itype-new-btn').classList.toggle('selected', type === 'new');
+  document.getElementById('itype-rep-btn').classList.toggle('selected', type === 'replacement');
+}
+
+function setTrack(track, silent) {
+  INV.track = track;
+  document.getElementById('track-a-btn').classList.toggle('selected', track === 'A');
+  document.getElementById('track-b-btn').classList.toggle('selected', track === 'B');
+  document.getElementById('track-b-items').style.display = track === 'B' ? 'block' : 'none';
+  if (track === 'A') {
+    document.getElementById('track-a-btn').style.borderColor = 'var(--success)';
+    document.getElementById('track-a-btn').style.background = 'var(--success-bg)';
+    document.getElementById('track-b-btn').style.borderColor = 'var(--bd2)';
+    document.getElementById('track-b-btn').style.background = 'var(--bg)';
+  } else {
+    document.getElementById('track-b-btn').style.borderColor = 'var(--brand)';
+    document.getElementById('track-b-btn').style.background = 'var(--brand-light)';
+    document.getElementById('track-a-btn').style.borderColor = 'var(--bd2)';
+    document.getElementById('track-a-btn').style.background = 'var(--bg)';
+  }
+}
+
+function addReqItem() {
+  const code = document.getElementById('reqStockCode').value.trim();
+  const desc = document.getElementById('reqDesc').value.trim();
+  if (!code && !desc) return;
+  INV.reqItems.push({ stockCode: code, description: desc, quantity: 1, issued: false });
+  document.getElementById('reqStockCode').value = '';
+  document.getElementById('reqDesc').value = '';
+  renderReqItems();
+}
+
+function removeReqItem(i) {
+  INV.reqItems.splice(i, 1);
+  renderReqItems();
+}
+
+function renderReqItems() {
+  const el = document.getElementById('req-items-list');
+  if (!INV.reqItems.length) { el.innerHTML = ''; return; }
+  el.innerHTML = INV.reqItems.map((item, i) =>
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--bd);">' +
+    '<div><div style="font-size:13px;font-weight:500;">' + (item.stockCode||'—') + '</div>' +
+    '<div style="font-size:12px;color:var(--tx2);">' + (item.description||'') + '</div></div>' +
+    '<button onclick="removeReqItem(' + i + ')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:18px;padding:0 4px;">×</button></div>'
+  ).join('');
+}
+
+function submitInvestigation() {
+  const j = APP.jobs.find(x => x.id === APP._currentJobId);
+  if (!j) return;
+  const confirmed = document.getElementById('faultConfirmed').value;
+  const findings = document.getElementById('invFindings').value.trim();
+  const assetType = document.getElementById('invAssetType').value;
+  if (!confirmed) { alert('Please select fault confirmation status.'); return; }
+  if (!findings) { alert('Please enter investigation findings.'); return; }
+  if (!INV.track) { alert('Please select Track A (no material) or Track B (material required).'); return; }
+  if (!APP.photos || !APP.photos['inv_fault']) { alert('An investigation photo of the fault as found is required.'); return; }
+  if (assetType === 'point' && !INV.installType) { alert('Please confirm whether this is a new installation or replacement.'); return; }
+
+  const gpsFlag = document.getElementById('invGpsFlag').checked;
+  const gpsManual = document.getElementById('invGpsManual').value.trim();
+
+  j.investigation = {
+    faultConfirmed: confirmed,
+    findings: findings,
+    equipment: document.getElementById('invEquipment').value.trim(),
+    serialNumber: document.getElementById('invSerial').value.trim(),
+    materialRequired: INV.track === 'B',
+    requiredItems: INV.reqItems,
+    photos: [{ type: 'fault_as_found', dataUrl: APP.photos['inv_fault'], takenAt: new Date().toISOString(),
+      gps: INV.gps ? { ...INV.gps, flagged: gpsFlag, manualOverride: gpsFlag ? gpsManual : null } : null }]
+  };
+  j.track = INV.track;
+  j.assetType = assetType || null;
+  j.installType = INV.installType || null;
+  j.staffShortage = document.getElementById('staffShortage').checked;
+  j.status = 'pending_approval';
+  if (INV.track === 'B') { j.requisition.items = INV.reqItems; }
+  j.timestamps.investigationSubmitted = new Date().toISOString();
+  if (j.location.gps) j.location.gps.arrival = INV.gps ? { ...INV.gps, flagged: gpsFlag } : null;
+  j.activityLog.push({ action: 'Investigation submitted — Track ' + INV.track, by: APP.user.name, at: new Date().toISOString() });
+
+  save();
+  APP.photos = APP.photos || {};
+  APP.photos['inv_fault'] = null;
+  resetPhotoZone('inv_fault', 'Tap to photograph fault as found');
+  updateDashboard();
+  alert('Investigation submitted.\nJob status: Pending approval\nTrack: ' + INV.track + (j.staffShortage ? '\nEscalated to DM (staff shortage).' : ''));
+  openJob(j.id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAGE 3 — TECHNICIAN APPROVAL
+// ─────────────────────────────────────────────────────────────────────────────
+function openTechApproval(jobId) {
+  APP._currentJobId = jobId;
+  const j = APP.jobs.find(x => x.id === jobId);
+  if (!j) return;
+  const pm = PRIORITY_META[j.priority]||{label:'?',badge:'badge-gray'};
+  const inv = j.investigation || {};
+  const isTrackB = j.track === 'B';
+  const staffShort = j.staffShortage;
+
+  document.getElementById('approve-tech-summary').innerHTML =
+    '<div class="card-title">Job summary</div>' +
+    '<div class="ir"><span class="l">JCN</span><span class="v">' + j.jcn + '</span></div>' +
+    '<div class="ir"><span class="l">Location</span><span class="v">' + j.location.streetAddress + '</span></div>' +
+    '<div class="ir"><span class="l">Fault</span><span class="v">' + (FAULT_LABELS[j.faultCategory]||j.faultCategory) + '</span></div>' +
+    '<div class="ir"><span class="l">Priority</span><span class="v"><span class="badge ' + pm.badge + '">' + pm.label + '</span></span></div>' +
+    '<div class="ir"><span class="l">Track</span><span class="v"><span class="badge ' + (isTrackB?'badge-brand':'badge-success') + '">Track ' + j.track + ' — ' + (isTrackB?'stores material required':'no material') + '</span></span></div>' +
+    (staffShort ? '<div class="notice notice-warn" style="margin-top:8px;">Staff shortage declared — DM must approve regardless of track.</div>' : '');
+
+  document.getElementById('approve-tech-inv-content').innerHTML =
+    '<div class="ir"><span class="l">Confirmed?</span><span class="v">' + (inv.faultConfirmed||'—') + '</span></div>' +
+    '<div class="ir"><span class="l">Findings</span><span class="v" style="text-align:left;">' + (inv.findings||'—') + '</span></div>' +
+    '<div class="ir"><span class="l">Equipment</span><span class="v">' + (inv.equipment||'—') + '</span></div>' +
+    (inv.serialNumber ? '<div class="ir"><span class="l">Serial</span><span class="v">' + inv.serialNumber + '</span></div>' : '') +
+    (inv.photos && inv.photos.length ? '<div style="margin-top:8px;"><div style="font-size:11px;color:var(--tx2);margin-bottom:4px;">Investigation photo</div><img src="' + inv.photos[0].dataUrl + '" style="width:100%;max-height:180px;object-fit:cover;border-radius:var(--rs);" alt=""></div>' : '');
+
+  if (isTrackB && !staffShort) {
+    document.getElementById('track-b-escalate-note').style.display = 'block';
+  } else {
+    document.getElementById('track-b-escalate-note').style.display = 'none';
+  }
+
+  const btns = document.getElementById('tech-approve-btns');
+  if (isTrackB || staffShort) {
+    btns.innerHTML =
+      '<button class="btn btn-s" onclick="backToJob()">Cancel</button>' +
+      '<button class="btn btn-warn" onclick="techEscalateToDM()">Escalate to DM</button>' +
+      '<button class="btn btn-danger" onclick="techRejectJob()">Reject</button>';
+  } else {
+    btns.innerHTML =
+      '<button class="btn btn-s" onclick="backToJob()">Cancel</button>' +
+      '<button class="btn btn-ok" onclick="techApproveJob()">Approve job card</button>' +
+      '<button class="btn btn-danger" onclick="techRejectJob()">Reject</button>';
+  }
+  goTo('scr-approve-tech', null);
+}
+
+function techApproveJob() {
+  const j = APP.jobs.find(x => x.id === APP._currentJobId);
+  if (!j) return;
+  const notes = document.getElementById('techApproveNotes').value.trim();
+  j.status = 'approved';
+  j.assignedTechnician = APP.user.name;
+  j.timestamps.approved = new Date().toISOString();
+  j.activityLog.push({ action: 'Approved by technician (Track A)', by: APP.user.name, at: new Date().toISOString(), notes });
+  save(); updateDashboard();
+  alert('Job approved.\nJCN: ' + j.jcn + '\nArtisan can proceed with execution.');
+  openJob(j.id);
+}
+
+function techEscalateToDM() {
+  const j = APP.jobs.find(x => x.id === APP._currentJobId);
+  if (!j) return;
+  const notes = document.getElementById('techApproveNotes').value.trim();
+  j.status = 'pending_dm_approval';
+  j.assignedTechnician = APP.user.name;
+  j.timestamps.approvalRequested = new Date().toISOString();
+  j.activityLog.push({ action: 'Escalated to DM for approval', by: APP.user.name, at: new Date().toISOString(), notes });
+  save(); updateDashboard();
+  alert('Job escalated to Divisional Manager.\nJCN: ' + j.jcn);
+  openJob(j.id);
+}
+
+function techRejectJob() {
+  const notes = document.getElementById('techApproveNotes').value.trim();
+  if (!notes) { alert('Please enter a rejection reason in the notes field.'); return; }
+  const j = APP.jobs.find(x => x.id === APP._currentJobId);
+  if (!j) return;
+  j.status = 'rejected';
+  j.activityLog.push({ action: 'Rejected by technician — site visit required', by: APP.user.name, at: new Date().toISOString(), notes });
+  save(); updateDashboard();
+  alert('Job rejected.\nReason recorded. Artisan must conduct a site visit before resubmission.');
+  openJob(j.id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAGE 3 — DM APPROVAL
+// ─────────────────────────────────────────────────────────────────────────────
+function openDMApproval(jobId) {
+  APP._currentJobId = jobId;
+  const j = APP.jobs.find(x => x.id === jobId);
+  if (!j) return;
+  const pm = PRIORITY_META[j.priority]||{label:'?',badge:'badge-gray'};
+  const inv = j.investigation || {};
+  const isTrackB = j.track === 'B';
+
+  document.getElementById('approve-dm-summary').innerHTML =
+    '<div class="card-title">Job summary</div>' +
+    '<div class="ir"><span class="l">JCN</span><span class="v">' + j.jcn + '</span></div>' +
+    '<div class="ir"><span class="l">Location</span><span class="v">' + j.location.streetAddress + '</span></div>' +
+    '<div class="ir"><span class="l">Fault</span><span class="v">' + (FAULT_LABELS[j.faultCategory]||j.faultCategory) + '</span></div>' +
+    '<div class="ir"><span class="l">Priority</span><span class="v"><span class="badge ' + pm.badge + '">' + pm.label + '</span></span></div>' +
+    '<div class="ir"><span class="l">Escalated by</span><span class="v">' + (j.assignedTechnician||j.loggedBy) + '</span></div>' +
+    (j.staffShortage ? '<div class="notice notice-warn" style="margin-top:8px;">Staff shortage declared on this job — you are the signing authority.</div>' : '');
+
+  document.getElementById('approve-dm-inv-content').innerHTML =
+    '<div class="ir"><span class="l">Confirmed?</span><span class="v">' + (inv.faultConfirmed||'—') + '</span></div>' +
+    '<div class="ir"><span class="l">Findings</span><span class="v" style="text-align:left;">' + (inv.findings||'—') + '</span></div>' +
+    '<div class="ir"><span class="l">Equipment</span><span class="v">' + (inv.equipment||'—') + '</span></div>' +
+    (inv.photos && inv.photos.length ? '<div style="margin-top:8px;"><img src="' + inv.photos[0].dataUrl + '" style="width:100%;max-height:180px;object-fit:cover;border-radius:var(--rs);" alt=""></div>' : '');
+
+  if (isTrackB && j.requisition && j.requisition.items && j.requisition.items.length) {
+    document.getElementById('approve-dm-requisition').style.display = 'block';
+    document.getElementById('approve-dm-req-content').innerHTML =
+      '<div class="notice notice-info" style="margin-bottom:8px;">Approving this job card also approves the stores requisition. Both will receive linked reference numbers.</div>' +
+      j.requisition.items.map(item =>
+        '<div class="ir"><span class="l">' + (item.stockCode||'—') + '</span><span class="v">' + (item.description||'') + '</span></div>'
+      ).join('');
+  } else {
+    document.getElementById('approve-dm-requisition').style.display = 'none';
+  }
+
+  document.getElementById('dm-approve-btns').innerHTML =
+    '<button class="btn btn-s" onclick="backToJob()">Cancel</button>' +
+    '<button class="btn btn-ok" onclick="dmApproveJob()">Approve</button>' +
+    '<button class="btn btn-danger" onclick="dmRejectJob()">Reject</button>';
+
+  goTo('scr-approve-dm', null);
+}
+
+function dmApproveJob() {
+  const j = APP.jobs.find(x => x.id === APP._currentJobId);
+  if (!j) return;
+  const notes = document.getElementById('dmApproveNotes').value.trim();
+  const manualReq = document.getElementById('dmManualReq').value.trim();
+  const reqNum = j.track === 'B' ? 'REQ-' + new Date().getFullYear() + '-' + String(APP.jobs.indexOf(j)+1).padStart(4,'0') : null;
+  j.status = 'approved';
+  j.approvingDM = APP.user.name;
+  j.timestamps.approved = new Date().toISOString();
+  if (reqNum) {
+    j.requisition.systemReqNumber = reqNum;
+    j.requisition.manualReqNumber = manualReq || null;
+  }
+  j.activityLog.push({ action: 'Approved by DM' + (reqNum ? ' — REQ issued: ' + reqNum : ''), by: APP.user.name, at: new Date().toISOString(), notes });
+  save(); updateDashboard();
+  alert('Job approved by DM.\nJCN: ' + j.jcn + (reqNum ? '\nREQ: ' + reqNum : '') + '\nArtisan can proceed.');
+  openJob(j.id);
+}
+
+function dmRejectJob() {
+  const notes = document.getElementById('dmApproveNotes').value.trim();
+  if (!notes) { alert('Please enter a rejection reason in the notes field.'); return; }
+  const j = APP.jobs.find(x => x.id === APP._currentJobId);
+  if (!j) return;
+  j.status = 'rejected';
+  j.activityLog.push({ action: 'Rejected by DM — site visit required before resubmission', by: APP.user.name, at: new Date().toISOString(), notes });
+  save(); updateDashboard();
+  alert('Job rejected.\nReason recorded. Artisan must conduct a new site visit before resubmission.');
+  openJob(j.id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAGE 4 — STORES
+// ─────────────────────────────────────────────────────────────────────────────
+let STORES_CTX = { jobId: null, condition: null };
+
+function storesTab(tab) {
+  const list = document.getElementById('stores-list');
+  ['pending','returns','recon'].forEach(t => {
+    const el = document.getElementById('stab-'+t);
+    if (el) el.style.opacity = t === tab ? '1' : '0.6';
+  });
+  if (tab === 'pending') {
+    const jobs = APP.jobs.filter(j => j.requisition && j.requisition.systemReqNumber && !j.requisition.issued);
+    if (!jobs.length) { list.innerHTML = '<div class="empty"><p>No pending issues</p><small>Approved Track B jobs appear here</small></div>'; return; }
+    list.innerHTML = jobs.map(j => {
+      const items = j.requisition.items || [];
+      return '<div class="job-item" onclick="openStoresIssue(\'' + j.id + '\')">' +
+        '<div class="job-icon" style="background:var(--success-bg);border:0.5px solid var(--success)40;">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="1.5"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M8 8V6a4 4 0 018 0v2" stroke-linecap="round"/></svg></div>' +
+        '<div class="job-body"><div class="job-title">' + (FAULT_LABELS[j.faultCategory]||j.faultCategory) + '</div>' +
+        '<div class="job-sub">' + j.jcn + ' · REQ: ' + j.requisition.systemReqNumber + '</div>' +
+        '<div class="job-meta">' + items.length + ' item(s) · ' + j.location.streetAddress + '</div></div>' +
+        '<span class="badge badge-success">Issue</span></div>';
+    }).join('');
+  } else if (tab === 'returns') {
+    const jobs = APP.jobs.filter(j => j.requisition && j.requisition.issued && !j.requisition.returned && j.assetType === 'point' && j.installType === 'replacement');
+    if (!jobs.length) { list.innerHTML = '<div class="empty"><p>No returns pending</p><small>Replaced point assets that need returning appear here</small></div>'; return; }
+    list.innerHTML = jobs.map(j => {
+      const age = Math.floor((Date.now()-new Date(j.requisition.issuedAt))/3600000);
+      return '<div class="job-item" onclick="openStoresCheckin(\'' + j.id + '\')">' +
+        '<div class="job-icon" style="background:var(--warn-bg);border:0.5px solid var(--warn)40;">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="1.5"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 010 8h-1" stroke-linecap="round"/></svg></div>' +
+        '<div class="job-body"><div class="job-title">' + (j.investigation&&j.investigation.equipment||'Asset') + '</div>' +
+        '<div class="job-sub">' + j.jcn + ' · ' + j.location.streetAddress + '</div>' +
+        '<div class="job-meta">' + age + 'h since issue</div></div>' +
+        '<span class="badge badge-warn">Return</span></div>';
+    }).join('');
+  } else {
+    const jobs = APP.jobs.filter(j => j.requisition && j.requisition.systemReqNumber && !j.requisition.financialSystemNumber);
+    if (!jobs.length) { list.innerHTML = '<div class="empty"><p>No outstanding financial numbers</p><small>All requisitions have been reconciled</small></div>'; return; }
+    list.innerHTML = '<div style="margin-bottom:8px;" class="notice notice-warn">These requisitions are waiting for a financial system number. Enter it when your stores system generates one.</div>' +
+      jobs.map(j => {
+        const age = Math.floor((Date.now()-new Date(j.timestamps.approved||j.timestamps.logged))/86400000);
+        return '<div style="padding:10px 0;border-bottom:0.5px solid var(--bd);">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<div><div style="font-size:13px;font-weight:500;">' + j.requisition.systemReqNumber + '</div>' +
+          '<div style="font-size:12px;color:var(--tx2);">' + j.jcn + ' · ' + (FAULT_LABELS[j.faultCategory]||j.faultCategory) + '</div>' +
+          '<div style="font-size:11px;color:var(--danger);">' + age + ' day(s) outstanding</div></div>' +
+          '<button class="btn btn-s btn-sm" onclick="enterFinancialNumber(\'' + j.id + '\')">Enter no.</button></div></div>';
+      }).join('');
+  }
+}
+
+function openStoresIssue(jobId) {
+  STORES_CTX.jobId = jobId;
+  APP._currentJobId = jobId;
+  const j = APP.jobs.find(x => x.id === jobId);
+  if (!j) return;
+  document.getElementById('issue-job-summary').innerHTML =
+    '<div class="card-title">Requisition</div>' +
+    '<div class="ir"><span class="l">JCN</span><span class="v">' + j.jcn + '</span></div>' +
+    '<div class="ir"><span class="l">REQ</span><span class="v">' + j.requisition.systemReqNumber + '</span></div>' +
+    (j.requisition.manualReqNumber ? '<div class="ir"><span class="l">Manual REQ</span><span class="v">' + j.requisition.manualReqNumber + '</span></div>' : '') +
+    '<div class="ir"><span class="l">Artisan</span><span class="v">' + (j.responsibleArtisan||'—') + '</span></div>' +
+    '<div class="ir"><span class="l">Location</span><span class="v">' + j.location.streetAddress + '</span></div>';
+  const items = j.requisition.items || [];
+  document.getElementById('issue-items-list').innerHTML = items.length
+    ? items.map(item => '<div class="ir"><span class="l">' + (item.stockCode||'—') + '</span><span class="v">' + (item.description||'') + '</span></div>').join('')
+    : '<p style="font-size:13px;color:var(--tx2);">No items listed on requisition.</p>';
+  resetPhotoZone('issued_at_stores','Tap to photograph item at counter');
+  document.getElementById('issueSerial').value = '';
+  document.getElementById('issueManualReq').value = j.requisition.manualReqNumber || '';
+  goTo('scr-stores-issue', 'stores');
+}
+
+function confirmIssue() {
+  const j = APP.jobs.find(x => x.id === STORES_CTX.jobId);
+  if (!j) return;
+  if (!APP.photos || !APP.photos['issued_at_stores']) { alert('Photo 1 (item issued at stores) is required.'); return; }
+  const serial = document.getElementById('issueSerial').value.trim();
+  j.requisition.issued = true;
+  j.requisition.issuedAt = new Date().toISOString();
+  j.requisition.issuedBy = APP.user.name;
+  j.requisition.issueSerial = serial;
+  j.requisition.issuePhoto = APP.photos['issued_at_stores'];
+  if (document.getElementById('issueManualReq').value.trim()) j.requisition.manualReqNumber = document.getElementById('issueManualReq').value.trim();
+  j.activityLog.push({ action: 'Item issued from stores — Photo 1 captured', by: APP.user.name, at: new Date().toISOString() });
+  save(); updateDashboard();
+  APP.photos['issued_at_stores'] = null;
+  alert('Issue confirmed. Photo 1 recorded.\nArtisan can now collect the item.');
+  goTo('scr-stores','stores');
+  storesTab('pending');
+}
+
+function openStoresCheckin(jobId) {
+  STORES_CTX = { jobId, condition: null };
+  APP._currentJobId = jobId;
+  const j = APP.jobs.find(x => x.id === jobId);
+  if (!j) return;
+  document.getElementById('checkin-job-summary').innerHTML =
+    '<div class="card-title">Asset return</div>' +
+    '<div class="ir"><span class="l">JCN</span><span class="v">' + j.jcn + '</span></div>' +
+    '<div class="ir"><span class="l">REQ</span><span class="v">' + (j.requisition.systemReqNumber||'—') + '</span></div>' +
+    '<div class="ir"><span class="l">Asset</span><span class="v">' + (j.investigation&&j.investigation.equipment||'Removed asset') + '</span></div>';
+  // Show comparison photo if removal photo exists
+  const removalPhoto = j.photos && j.photos.find(p => p.type === 'removed_condition');
+  if (removalPhoto && removalPhoto.dataUrl) {
+    document.getElementById('checkin-compare').style.display = 'block';
+    document.getElementById('checkin-removal-thumb').src = removalPhoto.dataUrl;
+  } else {
+    document.getElementById('checkin-compare').style.display = 'none';
+  }
+  document.getElementById('cond-op-btn').className = 'role-btn';
+  document.getElementById('cond-dmg-btn').className = 'role-btn';
+  document.getElementById('damage-notes-wrap').style.display = 'none';
+  resetPhotoZone('returned_to_stores','Tap to photograph returned asset');
+  goTo('scr-stores-checkin','stores');
+}
+
+function setCondition(cond) {
+  STORES_CTX.condition = cond;
+  document.getElementById('cond-op-btn').className = 'role-btn' + (cond==='operational'?' selected':'');
+  document.getElementById('cond-dmg-btn').className = 'role-btn' + (cond==='damaged'?' selected':'');
+  if (cond==='operational') {
+    document.getElementById('cond-op-btn').style.borderColor='var(--success)';document.getElementById('cond-op-btn').style.background='var(--success-bg)';
+    document.getElementById('cond-dmg-btn').style.borderColor='var(--bd2)';document.getElementById('cond-dmg-btn').style.background='var(--bg)';
+  } else {
+    document.getElementById('cond-dmg-btn').style.borderColor='var(--danger)';document.getElementById('cond-dmg-btn').style.background='var(--danger-bg)';
+    document.getElementById('cond-op-btn').style.borderColor='var(--bd2)';document.getElementById('cond-op-btn').style.background='var(--bg)';
+  }
+  document.getElementById('damage-notes-wrap').style.display = cond==='damaged'?'block':'none';
+  // Update comparison if checkin photo already taken
+  if (APP.photos && APP.photos['returned_to_stores']) {
+    document.getElementById('checkin-new-thumb-wrap').innerHTML =
+      '<img src="'+APP.photos['returned_to_stores']+'" style="width:100%;height:100%;object-fit:cover;" alt=""><div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:white;font-size:9px;padding:3px 6px;text-align:center;">Check-in</div>';
+  }
+}
+
+function confirmCheckin() {
+  const j = APP.jobs.find(x => x.id === STORES_CTX.jobId);
+  if (!j) return;
+  if (!STORES_CTX.condition) { alert('Please select item condition: Operational or Damaged.'); return; }
+  if (!APP.photos || !APP.photos['returned_to_stores']) { alert('Photo 5 (check-in photo) is required.'); return; }
+  j.requisition.returned = true;
+  j.requisition.returnedAt = new Date().toISOString();
+  j.requisition.returnedBy = APP.user.name;
+  j.requisition.returnCondition = STORES_CTX.condition;
+  j.requisition.damageNotes = STORES_CTX.condition==='damaged' ? document.getElementById('damageNotes').value : '';
+  j.requisition.checkinPhoto = APP.photos['returned_to_stores'];
+  if (!j.photos) j.photos = [];
+  j.photos.push({ type:'returned_to_stores', dataUrl: APP.photos['returned_to_stores'], takenAt: new Date().toISOString(), condition: STORES_CTX.condition });
+  j.activityLog.push({ action: 'Asset returned to stores — ' + STORES_CTX.condition + ' — Photo 5 captured', by: APP.user.name, at: new Date().toISOString() });
+  save(); updateDashboard();
+  APP.photos['returned_to_stores'] = null;
+  alert('Check-in complete.\nCondition: ' + STORES_CTX.condition.charAt(0).toUpperCase() + STORES_CTX.condition.slice(1) + '\nAsset register notification queued.');
+  goTo('scr-stores','stores');
+  storesTab('returns');
+}
+
+function enterFinancialNumber(jobId) {
+  const j = APP.jobs.find(x => x.id === jobId);
+  if (!j) return;
+  const num = prompt('Enter stores financial system number for REQ: ' + j.requisition.systemReqNumber);
+  if (!num || !num.trim()) return;
+  j.requisition.financialSystemNumber = num.trim();
+  j.requisition.financialEnteredBy = APP.user.name;
+  j.requisition.financialEnteredAt = new Date().toISOString();
+  j.activityLog.push({ action: 'Financial system number entered: ' + num.trim(), by: APP.user.name, at: new Date().toISOString() });
+  save(); updateDashboard();
+  storesTab('recon');
+  alert('Financial number recorded: ' + num.trim());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAGE 5 — EXECUTION
+// ─────────────────────────────────────────────────────────────────────────────
+const PHOTO_SEQUENCE = {
+  point_replacement: [
+    { key:'existing_as_found',    label:'Existing asset — as found',       by:'artisan',  required:true,  desc:'Photograph before work begins. Serial number visible.' },
+    { key:'new_as_installed',     label:'New item — as installed',          by:'artisan',  required:true,  desc:'After installation. Nameplate and surroundings visible.' },
+    { key:'removed_serial',       label:'Removed asset — serial number',    by:'artisan',  required:true,  desc:'After extraction. Serial number clearly visible.' },
+    { key:'removed_condition',    label:'Removed asset — condition',        by:'artisan',  required:true,  desc:'Condition at removal. Derecognition date for asset register.' }
+  ],
+  point_new: [
+    { key:'new_as_installed',     label:'New item — as installed',          by:'artisan',  required:true,  desc:'After installation. Nameplate and surroundings visible.' }
+  ],
+  linear: [
+    { key:'repair_completed',     label:'Repair completed',                 by:'artisan',  required:true,  desc:'After repair. Before leaving site.' }
+  ],
+  outage: [
+    { key:'repair_completed',     label:'Supply restored / repair done',    by:'artisan',  required:true,  desc:'After restoration. Before leaving site.' }
+  ],
+  overhead: [
+    { key:'repair_completed',     label:'Repair completed',                 by:'artisan',  required:true,  desc:'After repair. Before leaving site.' }
+  ]
+};
+
+function getPhotoSequenceKey(job) {
+  if (job.assetType === 'point') return job.installType === 'replacement' ? 'point_replacement' : 'point_new';
+  return job.assetType || 'outage';
+}
+
+function openExecution(jobId) {
+  APP._currentJobId = jobId;
+  const j = APP.jobs.find(x => x.id === jobId);
+  if (!j) return;
+  const pm = PRIORITY_META[j.priority]||{label:'?',badge:'badge-gray'};
+  document.getElementById('exec-job-summary').innerHTML =
+    '<div class="ir"><span class="l">JCN</span><span class="v">' + j.jcn + '</span></div>' +
+    '<div class="ir"><span class="l">Location</span><span class="v">' + j.location.streetAddress + '</span></div>' +
+    '<div class="ir"><span class="l">Fault</span><span class="v">' + (FAULT_LABELS[j.faultCategory]||j.faultCategory) + '</span></div>' +
+    '<div class="ir"><span class="l">Priority</span><span class="v"><span class="badge ' + pm.badge + '">' + pm.label + '</span></span></div>' +
+    '<div class="ir"><span class="l">Track</span><span class="v">Track ' + (j.track||'?') + '</span></div>';
+
+  const seqKey = getPhotoSequenceKey(j);
+  const seq = PHOTO_SEQUENCE[seqKey] || PHOTO_SEQUENCE.outage;
+  const existingPhotos = (j.photos||[]).map(p => p.type);
+  const done = seq.filter(s => existingPhotos.includes(s.key) || (APP.photos && APP.photos[s.key])).length;
+  document.getElementById('exec-photo-progress').textContent = done + ' / ' + seq.length + ' photos';
+
+  document.getElementById('exec-photo-steps').innerHTML = seq.map((step, i) => {
+    const isDone = existingPhotos.includes(step.key) || (APP.photos && APP.photos[step.key]);
+    const existingPhoto = (j.photos||[]).find(p => p.type === step.key);
+    const photoDataUrl = existingPhoto ? existingPhoto.dataUrl : (APP.photos && APP.photos[step.key]);
+    return '<div style="margin-bottom:12px;border:0.5px solid var(--bd);border-radius:var(--rs);overflow:hidden;">' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);">' +
+      '<div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:white;background:' + (isDone?'var(--success)':'var(--brand)') + ';flex-shrink:0;">' + (isDone?'✓':(i+1)) + '</div>' +
+      '<div style="flex:1;"><div style="font-size:12px;font-weight:500;">' + step.label + '</div>' +
+      '<div style="font-size:11px;color:var(--tx2);">' + step.desc + '</div></div>' +
+      (isDone?'<span class="badge badge-success">Done</span>':'<span class="badge badge-warn">Required</span>') + '</div>' +
+      '<div style="padding:10px 12px;">' +
+      '<div class="pz' + (isDone?' captured':'') + '" id="pz-' + step.key.replace(/_/g,'-') + '" onclick="openNativeCam(\'' + step.key + '\')">' +
+      '<svg width="24" height="24" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity=".5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity=".5"/></svg>' +
+      '<p id="pzt-' + step.key.replace(/_/g,'-') + '">' + (isDone?'Photo captured — tap to retake':'Tap to capture') + '</p></div>' +
+      (photoDataUrl ? '<img src="' + photoDataUrl + '" style="width:100%;max-height:140px;object-fit:cover;border-radius:var(--rs);margin-top:6px;" alt="">' : '') +
+      '</div></div>';
+  }).join('');
+
+  // Pre-fill outcome if already set
+  if (j.completion && j.completion.outcome) document.getElementById('execOutcome').value = j.completion.outcome;
+  if (j.completion && j.completion.report) document.getElementById('execNotes').value = j.completion.report;
+  document.getElementById('execOutcome').onchange = function() {
+    document.getElementById('child-job-note').style.display = this.value === 'additional' ? 'block' : 'none';
+  };
+
+  // Record work start time
+  if (!j.timestamps.workStarted) { j.timestamps.workStarted = new Date().toISOString(); save(); }
+  goTo('scr-execute', null);
+}
+
+function submitExecution() {
+  const j = APP.jobs.find(x => x.id === APP._currentJobId);
+  if (!j) return;
+  const outcome = document.getElementById('execOutcome').value;
+  const notes = document.getElementById('execNotes').value.trim();
+  if (!outcome) { alert('Please select the completion outcome.'); return; }
+  if (!notes) { alert('Please enter completion notes.'); return; }
+
+  // Check required photos
+  const seqKey = getPhotoSequenceKey(j);
+  const seq = PHOTO_SEQUENCE[seqKey] || PHOTO_SEQUENCE.outage;
+  const existingPhotos = (j.photos||[]).map(p => p.type);
+  const missing = seq.filter(s => s.required && !existingPhotos.includes(s.key) && !(APP.photos && APP.photos[s.key]));
+  if (missing.length) { alert('Required photos missing:\n' + missing.map(m => '• ' + m.label).join('\n')); return; }
+
+  // Save new photos from session
+  if (!j.photos) j.photos = [];
+  seq.forEach(step => {
+    if (APP.photos && APP.photos[step.key] && !existingPhotos.includes(step.key)) {
+      j.photos.push({ type: step.key, dataUrl: APP.photos[step.key], takenAt: new Date().toISOString(),
+        takenBy: APP.user.name, gps: APP.gps });
+      APP.photos[step.key] = null;
+    }
+  });
+
+  j.completion = { report: notes, outcome, submittedAt: new Date().toISOString(), submittedBy: APP.user.name };
+  j.status = 'pending_signoff';
+  j.timestamps.completionSubmitted = new Date().toISOString();
+  j.activityLog.push({ action: 'Completion submitted — ' + outcome, by: APP.user.name, at: new Date().toISOString() });
+
+  // Asset register data — capture recognition/derecognition dates
+  if (j.assetType === 'point' && j.installType === 'replacement') {
+    const photo3 = j.photos.find(p => p.type === 'new_as_installed');
+    const photo4a = j.photos.find(p => p.type === 'removed_condition');
+    j.assetNotification = {
+      sent: false, pendingSend: true,
+      newSerial: j.requisition && j.requisition.issueSerial,
+      oldSerial: j.investigation && j.investigation.serialNumber,
+      installDate: photo3 ? photo3.takenAt : new Date().toISOString(),
+      removalDate: photo4a ? photo4a.takenAt : new Date().toISOString(),
+      jcn: j.jcn, reqNumber: j.requisition && j.requisition.systemReqNumber
+    };
+  }
+
+  // Create child job if needed
+  let childMsg = '';
+  if (outcome === 'additional') {
+    const childJcn = j.jcn + '-A';
+    j.childJcns = j.childJcns || [];
+    j.childJcns.push(childJcn);
+    childMsg = '\nChild job ' + childJcn + ' created for additional work.';
+    j.activityLog.push({ action: 'Child job created: ' + childJcn, by: APP.user.name, at: new Date().toISOString() });
+  }
+
+  save(); updateDashboard();
+  alert('Completion submitted.\nJob status: Pending sign-off' + childMsg);
+  openJob(j.id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAGE 6 — SIGN-OFF & CLOSURE
+// ─────────────────────────────────────────────────────────────────────────────
+function openSignoff(jobId) {
+  APP._currentJobId = jobId;
+  const j = APP.jobs.find(x => x.id === jobId);
+  if (!j) return;
+  const pm = PRIORITY_META[j.priority]||{label:'?',badge:'badge-gray'};
+  const comp = j.completion || {};
+
+  document.getElementById('signoff-summary').innerHTML =
+    '<div class="card-title">Job summary</div>' +
+    '<div class="ir"><span class="l">JCN</span><span class="v">' + j.jcn + '</span></div>' +
+    '<div class="ir"><span class="l">Location</span><span class="v">' + j.location.streetAddress + '</span></div>' +
+    '<div class="ir"><span class="l">Fault</span><span class="v">' + (FAULT_LABELS[j.faultCategory]||j.faultCategory) + '</span></div>' +
+    '<div class="ir"><span class="l">Priority</span><span class="v"><span class="badge ' + pm.badge + '">' + pm.label + '</span></span></div>' +
+    '<div class="ir"><span class="l">Artisan</span><span class="v">' + (j.responsibleArtisan||'—') + '</span></div>' +
+    (j.staffShortage ? '<div class="notice notice-warn" style="margin-top:8px;">Staff shortage declared — you are the signing authority.</div>' : '');
+
+  document.getElementById('signoff-completion-content').innerHTML =
+    '<div class="ir"><span class="l">Outcome</span><span class="v">' + (comp.outcome||'—') + '</span></div>' +
+    '<div class="ir"><span class="l">Report</span><span class="v" style="text-align:left;">' + (comp.report||'—') + '</span></div>' +
+    (comp.submittedBy ? '<div class="ir"><span class="l">Submitted by</span><span class="v">' + comp.submittedBy + '</span></div>' : '') +
+    (comp.submittedAt ? '<div class="ir"><span class="l">Submitted</span><span class="v">' + new Date(comp.submittedAt).toLocaleString('en-ZA') + '</span></div>' : '');
+
+  // Stores loop check for Track B point assets
+  if (j.track === 'B' && j.assetType === 'point') {
+    document.getElementById('signoff-stores-check').style.display = 'block';
+    const seqKey = getPhotoSequenceKey(j);
+    const seq = PHOTO_SEQUENCE[seqKey] || [];
+    const allPhotos = [
+      { key:'issued_at_stores', label:'Photo 1 — Issued at stores', source: j.requisition && j.requisition.issuePhoto },
+      ...seq.map(s => ({ key:s.key, label:s.label, source:(j.photos||[]).find(p=>p.type===s.key) })),
+      { key:'returned_to_stores', label:'Photo 5 — Returned to stores', source: j.requisition && j.requisition.checkinPhoto }
+    ];
+    const storesLoopComplete = j.requisition && j.requisition.issued && j.requisition.returned;
+    document.getElementById('signoff-stores-status').innerHTML =
+      allPhotos.map(p => {
+        const ok = !!(p.source);
+        return '<div class="ir"><span class="l">' + p.label + '</span>' +
+          '<span class="v"><span class="badge ' + (ok?'badge-success':'badge-danger') + '">' + (ok?'✓ Present':'Missing') + '</span></span></div>';
+      }).join('') +
+      (!storesLoopComplete ? '<div class="notice notice-warn" style="margin-top:8px;">Stores loop incomplete — item not yet returned to stores. Verify before signing off.</div>' : '<div class="notice notice-success" style="margin-top:8px;">Stores loop complete.</div>');
+  } else {
+    document.getElementById('signoff-stores-check').style.display = 'none';
+  }
+
+  document.getElementById('signoff-btns').innerHTML =
+    '<button class="btn btn-s" onclick="backToJob()">Cancel</button>' +
+    '<button class="btn btn-s" onclick="showReworkInput()">Request rework</button>' +
+    '<button class="btn btn-ok" onclick="signoffJob()">Sign off &amp; close job</button>';
+
+  goTo('scr-signoff', null);
+}
+
+function signoffJob() {
+  const j = APP.jobs.find(x => x.id === APP._currentJobId);
+  if (!j) return;
+  const notes = document.getElementById('signoffNotes').value.trim();
+  // Capture sign-off GPS
+  startGPS(gps => { if(j.location&&j.location.gps) j.location.gps.signoff = gps; }, () => {});
+  j.status = 'closed';
+  j.signedOffBy = APP.user.name;
+  j.timestamps.signedOff = new Date().toISOString();
+  j.timestamps.closed = new Date().toISOString();
+  j.signoff = { notes, requestedRework: false };
+  j.activityLog.push({ action: 'Signed off and closed', by: APP.user.name, at: new Date().toISOString(), notes });
+  // Trigger asset register notification
+  if (j.assetNotification && j.assetNotification.pendingSend) {
+    j.assetNotification.sent = true;
+    j.assetNotification.sentAt = new Date().toISOString();
+    j.activityLog.push({ action: 'Asset register derecognition notification generated', by: 'System', at: new Date().toISOString() });
+  }
+  save(); updateDashboard();
+  alert('Job closed.\nJCN: ' + j.jcn + '\n' + (j.assetNotification && j.assetNotification.sent ? 'Asset register notification sent to Asset Management.' : ''));
+  goTo('scr-dashboard','dashboard');
+}
+
+function showReworkInput() {
+  document.getElementById('signoff-rework-wrap').style.display='block';
+}
+function requestRework(jobId) {
+  const j = APP.jobs.find(x => x.id === (jobId||APP._currentJobId));
+  if (!j) return;
+  const notes = document.getElementById('reworkNotes').value.trim();
+  if (!notes) { alert('Please enter rework instructions.'); return; }
+  j.status = 'in_progress';
+  j.signoff = { notes:'', requestedRework: true, reworkNotes: notes };
+  j.activityLog.push({ action: 'Rework requested', by: APP.user.name, at: new Date().toISOString(), notes });
+  save(); updateDashboard();
+  alert('Rework requested. Job returned to artisan.');
+  goTo('scr-dashboard','dashboard');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MY JOBS SCREEN (Artisan)
+// ─────────────────────────────────────────────────────────────────────────────
+function myJobFilter(filter) {
+  const name = APP.user.name;
+  let jobs;
+  if (filter === 'active') jobs = APP.jobs.filter(j => j.responsibleArtisan === name && !['closed','rejected'].includes(j.status));
+  else if (filter === 'closed') jobs = APP.jobs.filter(j => j.responsibleArtisan === name && j.status === 'closed');
+  else jobs = APP.jobs.filter(j => j.responsibleArtisan === name);
+  renderJobList('my-jobs-list', jobs);
+}
+
+// APPROVAL QUEUE (Technician / DM)
+function renderApprovalQueue() {
+  const role = APP.user.role;
+  let jobs = [];
+  if (role === 'technician') jobs = APP.jobs.filter(j => j.status === 'pending_approval');
+  if (['manager','senior_manager'].includes(role)) jobs = APP.jobs.filter(j => j.status === 'pending_dm_approval');
+  renderJobList('approval-list', jobs);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NATIVE CAMERA WITH GPS STAMP (Phase 1 version — canvas-based)
+// ─────────────────────────────────────────────────────────────────────────────
+APP.photos = {};
+APP.camStream = null;
+APP.camFacing = 'environment';
+APP.camJobContext = null;
+
+function openNativeCam(photoType) {
+  APP.currentCamera = photoType;
+  // Get the current job for stamp context
+  const j = APP._currentJobId ? APP.jobs.find(x => x.id === APP._currentJobId) : null;
+  APP.camJobContext = j;
+  document.getElementById('fileInput').click();
+}
+
+function handlePhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      burnStamp(ctx, canvas.width, canvas.height, APP.currentCamera, APP.camJobContext);
+      const stamped = canvas.toDataURL('image/jpeg', 0.88);
+      APP.photos[APP.currentCamera] = stamped;
+      markPhotoCaptured(APP.currentCamera, stamped);
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function burnStamp(ctx, W, H, photoType, job) {
+  const now = new Date();
+  const ds = now.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}) + ' ' +
+             now.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const lines = [];
+  // GPS line
+  if (APP.gps) lines.push('GPS: ' + APP.gps.lat.toFixed(5) + '\u00b0, ' + APP.gps.lng.toFixed(5) + '\u00b0 (\u00b1' + APP.gps.accuracy + 'm)');
+  else lines.push('GPS: Unavailable');
+  lines.push(ds);
+  // Photo type label
+  const photoLabels = {
+    inv_fault: 'Fault as found',
+    issued_at_stores: 'Issued at stores',
+    existing_as_found: 'Existing asset — as found',
+    new_as_installed: 'New item — as installed',
+    removed_serial: 'Removed asset — serial',
+    removed_condition: 'Removed asset — condition',
+    returned_to_stores: 'Returned to stores'
+  };
+  lines.push(photoLabels[photoType] || photoType);
+  // Job reference
+  if (job) {
+    lines.push('JCN: ' + job.jcn + (job.requisition && job.requisition.systemReqNumber ? ' | REQ: ' + job.requisition.systemReqNumber : ''));
+    if (APP.user && APP.user.name) lines.push('Artisan: ' + APP.user.name);
+  }
+  lines.push('Municipal FMS');
+  const fs = Math.max(14, Math.round(W / 55));
+  const lh = fs + 8;
+  const barH = lines.length * lh + 14;
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(0, H - barH, W, barH);
+  ctx.font = fs + 'px monospace';
+  lines.forEach((line, i) => {
+    ctx.fillStyle = i === 0 && APP.gps ? '#97C459' : i === 0 ? '#EF9F27' : 'rgba(255,255,255,0.92)';
+    ctx.fillText(line, 12, H - barH + fs + 4 + (i * lh));
+  });
+}
+
+function markPhotoCaptured(type, dataUrl) {
+  const zoneId = 'pz-' + type.replace(/_/g,'-');
+  const thumbId = 'pt-' + type.replace(/_/g,'-');
+  const txtId = 'pzt-' + type.replace(/_/g,'-');
+  const zone = document.getElementById(zoneId);
+  const thumb = document.getElementById(thumbId);
+  const txt = document.getElementById(txtId);
+  if (zone) zone.classList.add('captured');
+  if (txt) txt.textContent = 'Photo captured (GPS stamped) — tap to retake';
+  if (thumb && dataUrl) { thumb.src = dataUrl; thumb.classList.add('vis'); }
+}
+
+function resetPhotoZone(type, label) {
+  const zoneId = 'pz-' + type.replace(/_/g,'-');
+  const thumbId = 'pt-' + type.replace(/_/g,'-');
+  const txtId = 'pzt-' + type.replace(/_/g,'-');
+  const zone = document.getElementById(zoneId);
+  const thumb = document.getElementById(thumbId);
+  const txt = document.getElementById(txtId);
+  if (zone) zone.classList.remove('captured');
+  if (txt) txt.textContent = label;
+  if (thumb) { thumb.src=''; thumb.classList.remove('vis'); }
+  if (APP.photos) APP.photos[type] = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOGOUT
+// ─────────────────────────────────────────────────────────────────────────────
+function showLogout() {
+  document.getElementById('logout-name').textContent = APP.user ? APP.user.name : '';
+  document.getElementById('logout-role').textContent = APP.user ? (ROLE_LABELS[APP.user.role]||APP.user.role) : '';
+  var modal = document.getElementById('logoutModal');
+  modal.style.display = 'flex';
+}
+function hideLogout() {
+  document.getElementById('logoutModal').style.display = 'none';
+}
+function confirmLogout() {
+  APP.user = null;
+  APP.selectedRole = null;
+  try { localStorage.removeItem('fms_session_v1'); } catch(e) {}
+  document.getElementById('logoutModal').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  // Reset login form
+  document.getElementById('loginName').value = '';
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('loginErr').style.display = 'none';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────────────────────────────────────
+load();
+if (APP.user) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  initApp();
+}
+</script>
+</body>
+</html>
