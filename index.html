@@ -733,6 +733,28 @@ input:checked+.tslider:before{transform:translateX(19px);}
         <input type="text" id="invSerial" placeholder="Optional — photo is primary evidence">
       </div>
 
+      <div class="card" id="inv-pole-card" style="display:none;">
+        <div class="card-title">Pole information <span style="font-size:11px;font-weight:400;color:var(--tx3);">optional — only if asset is pole-mounted</span></div>
+        <div class="notice notice-info" style="margin-bottom:10px;font-size:12px;">Complete this section if the transformer or asset is mounted on a pole. Leave blank if the asset is ground-mounted or the pole has no visible number.</div>
+        <label>Pole number <span style="color:var(--tx3);font-weight:400;">(if visible)</span></label>
+        <input type="text" id="invPoleNumber" placeholder="e.g. P-1042 or TP-2304">
+        <label style="margin-top:10px;">Pole type <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <select id="invPoleType">
+          <option value="">Select pole type…</option>
+          <option value="concrete">Concrete pole</option>
+          <option value="steel">Steel pole / lattice</option>
+          <option value="wooden">Wooden pole</option>
+          <option value="unknown">Unknown / not visible</option>
+        </select>
+        <label style="margin-top:10px;">Pole number plate photo <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <p style="font-size:12px;color:var(--tx2);margin-bottom:6px;">Photograph the pole number plate if present. GPS, date/time and JCN will be stamped.</p>
+        <div class="pz" id="pz-pole-number-plate" onclick="openNativeCam('pole_number_plate')">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect x="6" y="10" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5" opacity=".5"/><path d="M10 17h12M10 21h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".5"/></svg>
+          <p id="pzt-pole-number-plate">Tap to photograph pole number plate</p>
+        </div>
+        <img class="pthumb" id="pt-pole-number-plate" src="" alt="">
+      </div>
+
       <div class="card">
         <div class="card-title">Asset type &amp; installation type</div>
         <label>Asset type</label>
@@ -1509,10 +1531,13 @@ function openInvestigation(jobId) {
     document.getElementById('invFindings').value = j.investigation.findings || '';
     document.getElementById('invEquipment').value = j.investigation.equipment || '';
     document.getElementById('invSerial').value = j.investigation.serialNumber || '';
+    document.getElementById('invPoleNumber').value = j.investigation.poleNumber || '';
+    if (j.investigation.poleType) document.getElementById('invPoleType').value = j.investigation.poleType;
     if (j.investigation.faultConfirmed) document.getElementById('faultConfirmed').value = j.investigation.faultConfirmed;
     if (j.assetType) {
       document.getElementById('invAssetType').value = j.assetType;
       document.getElementById('inv-install-type-row').style.display = ['point','linear'].includes(j.assetType) ? 'block' : 'none';
+      document.getElementById('inv-pole-card').style.display = j.assetType === 'point' ? 'block' : 'none';
     }
   }
   if (j.staffShortage) document.getElementById('staffShortage').checked = true;
@@ -1556,6 +1581,8 @@ function updateAssetType() {
   const val = document.getElementById('invAssetType').value;
   const showInstall = val === 'point' || val === 'linear';
   document.getElementById('inv-install-type-row').style.display = showInstall ? 'block' : 'none';
+  // Show pole info card for point assets (transformers, mini-subs etc may be pole-mounted)
+  document.getElementById('inv-pole-card').style.display = val === 'point' ? 'block' : 'none';
   const instr = document.getElementById('inv-photo-instruction');
   if (val === 'point') instr.textContent = 'For point assets: capture existing asset in position, serial number visible. GPS, date/time and JCN stamped.';
   else if (val === 'linear') instr.textContent = 'For cables: capture fault as found. GPS, date/time and JCN stamped.';
@@ -1627,11 +1654,16 @@ function submitInvestigation() {
   const gpsFlag = document.getElementById('invGpsFlag').checked;
   const gpsManual = document.getElementById('invGpsManual').value.trim();
 
+  const poleNumber = document.getElementById('invPoleNumber').value.trim();
+  const poleType = document.getElementById('invPoleType').value;
   j.investigation = {
     faultConfirmed: confirmed,
     findings: findings,
     equipment: document.getElementById('invEquipment').value.trim(),
     serialNumber: document.getElementById('invSerial').value.trim(),
+    poleNumber: poleNumber || null,
+    poleType: poleType || null,
+    polePhoto: APP.photos && APP.photos['pole_number_plate'] ? APP.photos['pole_number_plate'] : null,
     materialRequired: INV.track === 'B',
     requiredItems: INV.reqItems,
     photos: [{ type: 'fault_as_found', dataUrl: APP.photos['inv_fault'], takenAt: new Date().toISOString(),
@@ -1650,7 +1682,11 @@ function submitInvestigation() {
   save();
   APP.photos = APP.photos || {};
   APP.photos['inv_fault'] = null;
+  APP.photos['pole_number_plate'] = null;
   resetPhotoZone('inv_fault', 'Tap to photograph fault as found');
+  resetPhotoZone('pole_number_plate', 'Tap to photograph pole number plate');
+  document.getElementById('invPoleNumber').value = '';
+  document.getElementById('invPoleType').value = '';
   updateDashboard();
   alert('Investigation submitted.\nJob status: Pending approval\nTrack: ' + INV.track + (j.staffShortage ? '\nEscalated to DM (staff shortage).' : ''));
   openJob(j.id);
@@ -2293,6 +2329,7 @@ function burnStamp(ctx, W, H, photoType, job) {
   // Photo type label
   const photoLabels = {
     inv_fault: 'Fault as found',
+    pole_number_plate: 'Pole number plate',
     issued_at_stores: 'Issued at stores',
     existing_as_found: 'Existing asset — as found',
     new_as_installed: 'New item — as installed',
