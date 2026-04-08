@@ -1767,28 +1767,33 @@ function renderJobActions(j) {
 // ARTISAN DROPDOWNS
 // ─────────────────────────────────────────────────────────────────────────────
 function populateArtisanDropdowns() {
-  const sel = document.getElementById('assignArtisan');
-  if (!sel) return;
-  // Clear existing options except placeholder
-  while (sel.options.length > 1) sel.remove(1);
-  // Use live users from Supabase (or local cache)
+  // Populate both the responsible and supporting artisan dropdowns
+  const selectors = ['assignArtisan', 'supportArtisans'];
   const artisans = APP.users.filter(function(u) {
     return u.active && ['artisan','technician'].includes(u.role);
   });
-  if (artisans.length) {
-    artisans.forEach(function(u) {
-      const opt = document.createElement('option');
-      opt.value = u.name; opt.textContent = u.name + ' (' + (ROLE_LABELS[u.role]||u.role) + ')';
-      sel.appendChild(opt);
-    });
-  } else {
-    // Fallback demo names if no users loaded yet
-    ['Demo Artisan 1','Demo Artisan 2','Demo Technician'].forEach(function(name) {
-      const opt = document.createElement('option');
-      opt.value = name; opt.textContent = name;
-      sel.appendChild(opt);
-    });
-  }
+  const fallback = ['Artisan 1','Artisan 2','Artisan 3','Artisan 4','Technician 1','Technician 2'];
+
+  selectors.forEach(function(id) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    // Clear existing options except placeholder
+    while (sel.options.length > 1) sel.remove(1);
+    if (artisans.length) {
+      artisans.forEach(function(u) {
+        const opt = document.createElement('option');
+        opt.value = u.name;
+        opt.textContent = u.name + ' (' + (ROLE_LABELS[u.role]||u.role) + ')';
+        sel.appendChild(opt);
+      });
+    } else {
+      fallback.forEach(function(name) {
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name;
+        sel.appendChild(opt);
+      });
+    }
+  });
 }
 
 // Source → show/hide complainant card
