@@ -937,6 +937,37 @@ const SK = 'fms_jobs_v1';
 const UK = 'fms_users_v1';
 const SK_SESSION = 'fms_session_v1';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPABASE CONFIG
+// ─────────────────────────────────────────────────────────────────────────────
+const SUPA_URL = 'https://lmnwsucwhxlyhcsuybxi.supabase.co';
+const SUPA_KEY = 'sb_publishable_wYF6w2Przjbh5DEKr-2AQA_iLEdtgQy';
+
+function supaHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'apikey': SUPA_KEY,
+    'Authorization': 'Bearer ' + SUPA_KEY,
+    'Prefer': 'return=representation'
+  };
+}
+
+// Generic Supabase fetch wrapper
+async function supaFetch(path, opts) {
+  opts = opts || {};
+  const res = await fetch(SUPA_URL + '/rest/v1/' + path, {
+    method: opts.method || 'GET',
+    headers: { ...supaHeaders(), ...(opts.headers||{}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    console.error('Supabase error:', res.status, err);
+    throw new Error('Supabase ' + res.status + ': ' + err);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
 let APP = {
   user: null,           // {name, role}
   jobs: [],
@@ -1048,16 +1079,250 @@ const ROLE_LABELS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // STORAGE
 // ─────────────────────────────────────────────────────────────────────────────
-function load() {
+// ── LOCAL CACHE (always used — Supabase syncs on top) ─────────────────────────
+function loadLocal() {
   try { const j=localStorage.getItem(SK); if(j) APP.jobs=JSON.parse(j); } catch(e){}
   try { const u=localStorage.getItem(UK); if(u) APP.users=JSON.parse(u); } catch(e){}
   try { const s=localStorage.getItem(SK_SESSION); if(s) APP.user=JSON.parse(s); } catch(e){}
 }
-function save() {
+function saveLocal() {
   try { localStorage.setItem(SK, JSON.stringify(APP.jobs)); } catch(e){}
+  try { localStorage.setItem(UK, JSON.stringify(APP.users)); } catch(e){}
 }
 function saveSession() {
   try { localStorage.setItem(SK_SESSION, JSON.stringify(APP.user)); } catch(e){}
+}
+function load() { loadLocal(); }
+function save() { saveLocal(); }
+
+// ── MAP LOCAL JOB TO SUPABASE ROW ────────────────────────────────────────────
+function jobToRow(j) {
+  return {
+    id:                   j.id,
+    jcn:                  j.jcn,
+    crn:                  j.crn,
+    manual_jcn:           j.manualJcn,
+    parent_jcn:           j.parentJcn,
+    child_jcns:           j.childJcns||[],
+    free_ref:             j.freeRef,
+    source:               j.source,
+    fault_category:       j.faultCategory,
+    priority:             j.priority,
+    asset_type:           j.assetType,
+    install_type:         j.installType,
+    status:               j.status,
+    track:                j.track,
+    staff_shortage:       j.staffShortage||false,
+    logged_by:            j.loggedBy,
+    logged_by_role:       j.loggedByRole,
+    responsible_artisan:  j.responsibleArtisan,
+    supporting_artisans:  j.supportingArtisans||[],
+    assigned_technician:  j.assignedTechnician,
+    approving_dm:         j.approvingDM,
+    signed_off_by:        j.signedOffBy,
+    street_address:       j.location && j.location.streetAddress,
+    account_number:       j.location && j.location.accountNumber,
+    site_code:            j.location && j.location.siteCode,
+    gps_intake:           j.location && j.location.gps && j.location.gps.intake,
+    gps_arrival:          j.location && j.location.gps && j.location.gps.arrival,
+    gps_signoff:          j.location && j.location.gps && j.location.gps.signoff,
+    fault_description:    j.faultDescription,
+    equipment_affected:   j.investigation && j.investigation.equipment,
+    serial_number:        j.investigation && j.investigation.serialNumber,
+    pole_number:          j.investigation && j.investigation.poleNumber,
+    pole_type:            j.investigation && j.investigation.poleType,
+    complainant_name:     j.complainant && j.complainant.name,
+    complainant_contact:  j.complainant && j.complainant.contact,
+    complainant_address:  j.complainant && j.complainant.address,
+    ts_logged:            j.timestamps && j.timestamps.logged,
+    ts_dispatched:        j.timestamps && j.timestamps.dispatched,
+    ts_arrived:           j.timestamps && j.timestamps.artisanArrived,
+    ts_investigation:     j.timestamps && j.timestamps.investigationSubmitted,
+    ts_approval_req:      j.timestamps && j.timestamps.approvalRequested,
+    ts_approved:          j.timestamps && j.timestamps.approved,
+    ts_work_started:      j.timestamps && j.timestamps.workStarted,
+    ts_completion:        j.timestamps && j.timestamps.completionSubmitted,
+    ts_signed_off:        j.timestamps && j.timestamps.signedOff,
+    ts_closed:            j.timestamps && j.timestamps.closed,
+    investigation:        j.investigation,
+    requisition:          j.requisition,
+    completion:           j.completion,
+    signoff:              j.signoff,
+    asset_notification:   j.assetNotification,
+    activity_log:         j.activityLog||[],
+    amendments:           j.amendments||[],
+    photos:               (j.photos||[]).map(function(p) {
+      // Store photos without full dataUrl to keep row size manageable
+      // dataUrl stored locally only; Supabase stores metadata
+      return { type:p.type, takenAt:p.takenAt, takenBy:p.takenBy,
+               gps:p.gps, condition:p.condition,
+               serialNumberVisible:p.serialNumberVisible };
+    })
+  };
+}
+
+// ── MAP SUPABASE ROW BACK TO LOCAL JOB ────────────────────────────────────────
+function rowToJob(r) {
+  return {
+    id:                 r.id,
+    jcn:                r.jcn,
+    crn:                r.crn,
+    manualJcn:          r.manual_jcn,
+    parentJcn:          r.parent_jcn,
+    childJcns:          r.child_jcns||[],
+    freeRef:            r.free_ref,
+    source:             r.source,
+    faultCategory:      r.fault_category,
+    priority:           r.priority,
+    assetType:          r.asset_type,
+    installType:        r.install_type,
+    status:             r.status,
+    track:              r.track,
+    staffShortage:      r.staff_shortage,
+    loggedBy:           r.logged_by,
+    loggedByRole:       r.logged_by_role,
+    responsibleArtisan: r.responsible_artisan,
+    supportingArtisans: r.supporting_artisans||[],
+    assignedTechnician: r.assigned_technician,
+    approvingDM:        r.approving_dm,
+    signedOffBy:        r.signed_off_by,
+    location: {
+      streetAddress: r.street_address,
+      accountNumber: r.account_number,
+      siteCode:      r.site_code,
+      gps: { intake: r.gps_intake, arrival: r.gps_arrival, signoff: r.gps_signoff }
+    },
+    faultDescription:  r.fault_description,
+    complainant: {
+      name:    r.complainant_name,
+      contact: r.complainant_contact,
+      address: r.complainant_address
+    },
+    timestamps: {
+      logged:                  r.ts_logged,
+      dispatched:              r.ts_dispatched,
+      artisanArrived:          r.ts_arrived,
+      investigationSubmitted:  r.ts_investigation,
+      approvalRequested:       r.ts_approval_req,
+      approved:                r.ts_approved,
+      workStarted:             r.ts_work_started,
+      completionSubmitted:     r.ts_completion,
+      signedOff:               r.ts_signed_off,
+      closed:                  r.ts_closed
+    },
+    investigation:     r.investigation || { findings:null, materialRequired:null, requiredItems:[], photos:[] },
+    requisition:       r.requisition   || { systemReqNumber:null, manualReqNumber:null, financialSystemNumber:null, items:[], partialIssue:false },
+    completion:        r.completion    || { report:null, outcome:null, photos:[] },
+    signoff:           r.signoff       || { notes:null },
+    assetNotification: r.asset_notification,
+    activityLog:       r.activity_log  || [],
+    amendments:        r.amendments    || [],
+    photos:            r.photos        || []
+  };
+}
+
+// ── SYNC A SINGLE JOB TO SUPABASE (upsert) ────────────────────────────────────
+async function syncJob(job) {
+  if (!APP.online) { APP._pendingSync = APP._pendingSync || []; APP._pendingSync.push(job.id); return; }
+  try {
+    await supaFetch('fms_jobs?on_conflict=id', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: jobToRow(job)
+    });
+    console.log('FMS: synced job', job.jcn);
+  } catch(e) {
+    console.warn('FMS: sync failed (offline?), queued for later:', job.jcn);
+    APP._pendingSync = APP._pendingSync || [];
+    if (!APP._pendingSync.includes(job.id)) APP._pendingSync.push(job.id);
+  }
+}
+
+// ── SYNC USER TO SUPABASE ──────────────────────────────────────────────────────
+async function syncUser(user) {
+  if (!APP.online) return;
+  try {
+    await supaFetch('fms_users?on_conflict=id', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: {
+        id: user.id, name: user.name, role: user.role,
+        contact: user.contact, employee_id: user.employeeId,
+        active: user.active, created_by: user.createdBy,
+        created_at: user.createdAt,
+        deactivated_at: user.deactivatedAt,
+        deactivated_reason: user.deactivatedReason
+      }
+    });
+  } catch(e) { console.warn('FMS: user sync failed:', e.message); }
+}
+
+// ── PULL ALL JOBS FROM SUPABASE ────────────────────────────────────────────────
+async function pullJobs() {
+  if (!APP.online) return;
+  try {
+    showSyncStatus('Syncing jobs…');
+    const rows = await supaFetch('fms_jobs?order=ts_logged.desc&limit=500');
+    if (rows && rows.length) {
+      // Merge: remote wins for jobs we don't have locally; keep local photos (dataUrls)
+      const localById = {};
+      APP.jobs.forEach(function(j) { localById[j.id] = j; });
+      const merged = rows.map(function(r) {
+        const remote = rowToJob(r);
+        const local  = localById[r.id];
+        if (local) {
+          // Keep local photos (have dataUrls), merge everything else from remote
+          remote.photos = local.photos && local.photos.length ? local.photos : remote.photos;
+        }
+        return remote;
+      });
+      // Add any local-only jobs not yet on server
+      APP.jobs.forEach(function(j) {
+        if (!rows.find(function(r) { return r.id === j.id; })) merged.push(j);
+      });
+      APP.jobs = merged;
+      saveLocal();
+      updateDashboard();
+      console.log('FMS: pulled', rows.length, 'jobs from Supabase');
+    }
+    showSyncStatus(null);
+  } catch(e) {
+    console.warn('FMS: pull failed:', e.message);
+    showSyncStatus(null);
+  }
+}
+
+// ── PULL USERS FROM SUPABASE ───────────────────────────────────────────────────
+async function pullUsers() {
+  if (!APP.online) return;
+  try {
+    const rows = await supaFetch('fms_users?active=eq.true&order=name.asc');
+    if (rows && rows.length) {
+      APP.users = rows.map(function(r) {
+        return { id:r.id, name:r.name, role:r.role, contact:r.contact,
+                 employeeId:r.employee_id, active:r.active,
+                 createdBy:r.created_by, createdAt:r.created_at };
+      });
+      saveLocal();
+      populateArtisanDropdowns();
+    }
+  } catch(e) { console.warn('FMS: user pull failed:', e.message); }
+}
+
+// ── SYNC ANY PENDING OFFLINE JOBS ──────────────────────────────────────────────
+async function syncPending() {
+  if (!APP.online || !APP._pendingSync || !APP._pendingSync.length) return;
+  const pending = [...APP._pendingSync];
+  APP._pendingSync = [];
+  for (const id of pending) {
+    const job = APP.jobs.find(function(j) { return j.id === id; });
+    if (job) await syncJob(job);
+  }
+}
+
+function showSyncStatus(msg) {
+  const lbl = document.getElementById('syncLbl');
+  if (lbl) lbl.textContent = msg || (APP.online ? 'Online' : 'Offline');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1153,6 +1418,18 @@ function initApp() {
   );
   populateArtisanDropdowns();
   setDashboardGreeting();
+  // Pull latest data from Supabase
+  if (APP.online) {
+    pullUsers().then(function() { populateArtisanDropdowns(); });
+    pullJobs();
+  }
+  // Poll every 60 seconds while online for real-time updates
+  setInterval(function() {
+    if (APP.online) {
+      syncPending();
+      pullJobs();
+    }
+  }, 60000);
 }
 
 function buildNav() {
@@ -1213,8 +1490,14 @@ function goTo(screenId, navId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // ONLINE STATUS
 // ─────────────────────────────────────────────────────────────────────────────
-window.addEventListener('online', () => { APP.online=true; updateOnlineStatus(); });
-window.addEventListener('offline', () => { APP.online=false; updateOnlineStatus(); });
+window.addEventListener('online', function() {
+  APP.online=true;
+  updateOnlineStatus();
+  syncPending();
+  pullJobs();
+  pullUsers().then(function() { populateArtisanDropdowns(); });
+});
+window.addEventListener('offline', function() { APP.online=false; updateOnlineStatus(); });
 function updateOnlineStatus() {
   const dot=document.getElementById('sdot'), lbl=document.getElementById('syncLbl'), banner=document.getElementById('offlineBanner');
   if (APP.online) { dot.className='sdot'; lbl.textContent='Online'; banner.style.display='none'; }
@@ -1287,6 +1570,7 @@ function submitNewJob() {
 
   APP.jobs.unshift(job);
   save();
+  syncJob(job);
 
   // Reset form
   ['jobSource','faultCategory','priority','faultDesc','streetAddress','accountNumber','siteCode','manualJcn','freeRef','compName','compContact','compAddress','assignArtisan'].forEach(id => {
@@ -1484,13 +1768,27 @@ function renderJobActions(j) {
 // ─────────────────────────────────────────────────────────────────────────────
 function populateArtisanDropdowns() {
   const sel = document.getElementById('assignArtisan');
-  // Demo artisans — will be replaced by user management module
-  const demoArtisans = ['Sipho Nkosi', 'Bongani Dlamini', 'Themba Mokoena', 'Lerato Sithole'];
-  demoArtisans.forEach(name => {
-    const opt = document.createElement('option');
-    opt.value = name; opt.textContent = name;
-    sel.appendChild(opt);
+  if (!sel) return;
+  // Clear existing options except placeholder
+  while (sel.options.length > 1) sel.remove(1);
+  // Use live users from Supabase (or local cache)
+  const artisans = APP.users.filter(function(u) {
+    return u.active && ['artisan','technician'].includes(u.role);
   });
+  if (artisans.length) {
+    artisans.forEach(function(u) {
+      const opt = document.createElement('option');
+      opt.value = u.name; opt.textContent = u.name + ' (' + (ROLE_LABELS[u.role]||u.role) + ')';
+      sel.appendChild(opt);
+    });
+  } else {
+    // Fallback demo names if no users loaded yet
+    ['Demo Artisan 1','Demo Artisan 2','Demo Technician'].forEach(function(name) {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+  }
 }
 
 // Source → show/hide complainant card
@@ -1679,7 +1977,7 @@ function submitInvestigation() {
   if (j.location.gps) j.location.gps.arrival = INV.gps ? { ...INV.gps, flagged: gpsFlag } : null;
   j.activityLog.push({ action: 'Investigation submitted — Track ' + INV.track, by: APP.user.name, at: new Date().toISOString() });
 
-  save();
+  save(); syncJob(j);
   APP.photos = APP.photos || {};
   APP.photos['inv_fault'] = null;
   APP.photos['pole_number_plate'] = null;
@@ -1749,7 +2047,7 @@ function techApproveJob() {
   j.assignedTechnician = APP.user.name;
   j.timestamps.approved = new Date().toISOString();
   j.activityLog.push({ action: 'Approved by technician (Track A)', by: APP.user.name, at: new Date().toISOString(), notes });
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
   alert('Job approved.\nJCN: ' + j.jcn + '\nArtisan can proceed with execution.');
   openJob(j.id);
 }
@@ -1762,7 +2060,7 @@ function techEscalateToDM() {
   j.assignedTechnician = APP.user.name;
   j.timestamps.approvalRequested = new Date().toISOString();
   j.activityLog.push({ action: 'Escalated to DM for approval', by: APP.user.name, at: new Date().toISOString(), notes });
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
   alert('Job escalated to Divisional Manager.\nJCN: ' + j.jcn);
   openJob(j.id);
 }
@@ -1774,7 +2072,7 @@ function techRejectJob() {
   if (!j) return;
   j.status = 'rejected';
   j.activityLog.push({ action: 'Rejected by technician — site visit required', by: APP.user.name, at: new Date().toISOString(), notes });
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
   alert('Job rejected.\nReason recorded. Artisan must conduct a site visit before resubmission.');
   openJob(j.id);
 }
@@ -1838,7 +2136,23 @@ function dmApproveJob() {
     j.requisition.manualReqNumber = manualReq || null;
   }
   j.activityLog.push({ action: 'Approved by DM' + (reqNum ? ' — REQ issued: ' + reqNum : ''), by: APP.user.name, at: new Date().toISOString(), notes });
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
+  // Create reconciliation record in Supabase for Track B jobs
+  if (reqNum && APP.online) {
+    const items = j.requisition && j.requisition.items || [];
+    const itemDesc = items.map(function(i) { return i.description || i.stockCode; }).join(', ') || 'See requisition';
+    supaFetch('fms_reconciliation', {
+      method: 'POST',
+      body: {
+        job_id: j.id, system_req_number: reqNum, system_jcn: j.jcn,
+        manual_req_number: manualReq || null,
+        manual_jcn: j.manualJcn || null,
+        item_description: itemDesc,
+        date_issued: new Date().toISOString(),
+        issued_by: APP.user.name
+      }
+    }).catch(function(e) { console.warn('Recon create failed:', e.message); });
+  }
   alert('Job approved by DM.\nJCN: ' + j.jcn + (reqNum ? '\nREQ: ' + reqNum : '') + '\nArtisan can proceed.');
   openJob(j.id);
 }
@@ -1850,7 +2164,7 @@ function dmRejectJob() {
   if (!j) return;
   j.status = 'rejected';
   j.activityLog.push({ action: 'Rejected by DM — site visit required before resubmission', by: APP.user.name, at: new Date().toISOString(), notes });
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
   alert('Job rejected.\nReason recorded. Artisan must conduct a new site visit before resubmission.');
   openJob(j.id);
 }
@@ -1942,7 +2256,7 @@ function confirmIssue() {
   j.requisition.issuePhoto = APP.photos['issued_at_stores'];
   if (document.getElementById('issueManualReq').value.trim()) j.requisition.manualReqNumber = document.getElementById('issueManualReq').value.trim();
   j.activityLog.push({ action: 'Item issued from stores — Photo 1 captured', by: APP.user.name, at: new Date().toISOString() });
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
   APP.photos['issued_at_stores'] = null;
   alert('Issue confirmed. Photo 1 recorded.\nArtisan can now collect the item.');
   goTo('scr-stores','stores');
@@ -2007,7 +2321,7 @@ function confirmCheckin() {
   if (!j.photos) j.photos = [];
   j.photos.push({ type:'returned_to_stores', dataUrl: APP.photos['returned_to_stores'], takenAt: new Date().toISOString(), condition: STORES_CTX.condition });
   j.activityLog.push({ action: 'Asset returned to stores — ' + STORES_CTX.condition + ' — Photo 5 captured', by: APP.user.name, at: new Date().toISOString() });
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
   APP.photos['returned_to_stores'] = null;
   alert('Check-in complete.\nCondition: ' + STORES_CTX.condition.charAt(0).toUpperCase() + STORES_CTX.condition.slice(1) + '\nAsset register notification queued.');
   goTo('scr-stores','stores');
@@ -2023,7 +2337,18 @@ function enterFinancialNumber(jobId) {
   j.requisition.financialEnteredBy = APP.user.name;
   j.requisition.financialEnteredAt = new Date().toISOString();
   j.activityLog.push({ action: 'Financial system number entered: ' + num.trim(), by: APP.user.name, at: new Date().toISOString() });
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
+  // Also update reconciliation table in Supabase
+  if (APP.online) {
+    supaFetch('fms_reconciliation?system_jcn=eq.' + j.jcn, {
+      method: 'PATCH',
+      body: {
+        financial_system_number: num.trim(),
+        financial_entered_by: APP.user.name,
+        financial_entered_at: new Date().toISOString()
+      }
+    }).catch(function(e) { console.warn('Recon sync failed:', e.message); });
+  }
   storesTab('recon');
   alert('Financial number recorded: ' + num.trim());
 }
@@ -2159,7 +2484,7 @@ function submitExecution() {
     j.activityLog.push({ action: 'Child job created: ' + childJcn, by: APP.user.name, at: new Date().toISOString() });
   }
 
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
   alert('Completion submitted.\nJob status: Pending sign-off' + childMsg);
   openJob(j.id);
 }
@@ -2237,7 +2562,7 @@ function signoffJob() {
     j.assetNotification.sentAt = new Date().toISOString();
     j.activityLog.push({ action: 'Asset register derecognition notification generated', by: 'System', at: new Date().toISOString() });
   }
-  save(); updateDashboard();
+  save(); syncJob(j); updateDashboard();
   alert('Job closed.\nJCN: ' + j.jcn + '\n' + (j.assetNotification && j.assetNotification.sent ? 'Asset register notification sent to Asset Management.' : ''));
   goTo('scr-dashboard','dashboard');
 }
