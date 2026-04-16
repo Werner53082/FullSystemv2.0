@@ -1154,13 +1154,20 @@ function jobToRow(j) {
     activity_log:         j.activityLog||[],
     amendments:           j.amendments||[],
     photos:               (j.photos||[]).map(function(p) {
-      // Store photos without full dataUrl to keep row size manageable
-      // dataUrl stored locally only; Supabase stores metadata
       return { type:p.type, takenAt:p.takenAt, takenBy:p.takenBy,
-               gps:p.gps, condition:p.condition,
-               serialNumberVisible:p.serialNumberVisible };
+               gps:p.gps, condition:p.condition };
     })
   };
+  // Remove null/undefined values — PostgREST rejects some null type mismatches
+  Object.keys(row).forEach(function(k) {
+    if (row[k] === null || row[k] === undefined) delete row[k];
+  });
+  // Always include these even if empty
+  row.activity_log = j.activityLog || [];
+  row.amendments   = j.amendments  || [];
+  row.photos       = row.photos    || [];
+  row.status       = j.status      || 'open';
+  return row;
 }
 
 // ── MAP SUPABASE ROW BACK TO LOCAL JOB ────────────────────────────────────────
@@ -1561,8 +1568,7 @@ function submitNewJob() {
     alert('Please fill in: Job source, Fault category, Priority, and Street address.'); return;
   }
 
-  const gpsFlag = document.getElementById('gpsFlagNew').checked;
-  const gpsManual = document.getElementById('gpsManualNew').value.trim();
+  // GPS not captured at intake — artisan captures on-site
 
   const job = {
     id: genUUID(),
@@ -1583,10 +1589,7 @@ function submitNewJob() {
       streetAddress: address + (document.getElementById('suburbArea').value.trim() ? ', ' + document.getElementById('suburbArea').value.trim() : ''),
       accountNumber: document.getElementById('accountNumber').value.trim() || null,
       siteCode: document.getElementById('siteCode').value.trim() || null,
-      gps: {
-        intake: APP.gps ? { ...APP.gps, flagged: gpsFlag, manualOverride: gpsFlag ? gpsManual : null } : null,
-        arrival: null, signoff: null
-      }
+      gps: { intake: null, arrival: null, signoff: null }
     },
     complainant: {
       name: document.getElementById('compName').value.trim() || null,
@@ -1606,12 +1609,12 @@ function submitNewJob() {
   syncJob(job);
 
   // Reset form
-  ['jobSource','faultCategory','priority','faultDesc','streetAddress','suburbArea','accountNumber','siteCode','manualJcn','freeRef','compName','compContact','compAddress','assignArtisan'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.value = '';
+  ['jobSource','faultCategory','priority','faultDesc','streetAddress','suburbArea','accountNumber','siteCode','manualJcn','freeRef','compName','compContact','compAddress','assignArtisan'].forEach(function(id) {
+    var el = document.getElementById(id); if(el) el.value = '';
   });
-  document.getElementById('gpsFlagNew').checked = false;
-  document.getElementById('gps-manual-new').style.display = 'none';
-  document.getElementById('gps-flag-row').style.display = 'none';
+  // Hide complainant card
+  var cc = document.getElementById('complainant-card');
+  if (cc) cc.style.display = 'none';
 
   alert('Job logged.\nJCN: ' + job.jcn + (job.crn ? '\nCRN: ' + job.crn : '') + (APP.online ? '\nSynced.' : '\nSaved offline.'));
   goTo('scr-dashboard', 'dashboard');
@@ -2825,6 +2828,13 @@ async function testSupabase() {
 
 // ── DEBUG: Write a test job directly ─────────────────────────────────────────
 async function testWrite() {
+  // Clean up previous test rows first
+  if (APP.online) {
+    fetch(SUPA_URL + '/rest/v1/fms_jobs?jcn=like.JC-TEST-*', {
+      method: 'DELETE',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    }).catch(function(){});
+  }
   // Step 1: try absolute minimum - just id and status
   const results = [];
   const tests = [
