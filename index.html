@@ -2825,33 +2825,33 @@ async function testSupabase() {
 
 // ── DEBUG: Write a test job directly ─────────────────────────────────────────
 async function testWrite() {
-  try {
-    const res = await fetch(SUPA_URL + '/rest/v1/fms_jobs', {
-      method: 'POST',
-      headers: {
-        'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        id: genUUID(),
-        jcn: 'JC-TEST-001',
-        status: 'open',
-        fault_category: 'streetlight_fault',
-        priority: 'low',
-        street_address: 'Test Street',
-        logged_by: 'Debug Test',
-        ts_logged: new Date().toISOString(),
-        activity_log: [],
-        amendments: [],
-        photos: []
-      })
-    });
-    alert('Write test HTTP status: ' + res.status + '\n' + (res.status === 201 ? 'SUCCESS - check Supabase table!' : 'FAILED - ' + await res.text()));
-  } catch(e) {
-    alert('Write FETCH ERROR: ' + e.message);
+  // Step 1: try absolute minimum - just id and status
+  const results = [];
+  const tests = [
+    { id: genUUID(), status: 'open' },
+    { id: genUUID(), status: 'open', jcn: 'JC-TEST-' + Date.now() },
+    { id: genUUID(), status: 'open', jcn: 'JC-TEST-' + Date.now(), ts_logged: new Date().toISOString() },
+  ];
+  for (var i = 0; i < tests.length; i++) {
+    try {
+      const res = await fetch(SUPA_URL + '/rest/v1/fms_jobs', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPA_KEY,
+          'Authorization': 'Bearer ' + SUPA_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(tests[i])
+      });
+      const body = res.status !== 201 ? await res.text() : 'OK';
+      results.push('Test ' + (i+1) + ': HTTP ' + res.status + ' — ' + body.substring(0,100));
+      if (res.status === 201) break; // stop at first success
+    } catch(e) {
+      results.push('Test ' + (i+1) + ': ERROR — ' + e.message);
+    }
   }
+  alert(results.join('\n\n'));
 }
 </script>
 </body>
