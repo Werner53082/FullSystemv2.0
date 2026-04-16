@@ -1232,19 +1232,20 @@ async function syncJob(job) {
   }
   try {
     const row = jobToRow(job);
-    // Try UPDATE first (job already exists on server)
-    const checkRes = await fetch(SUPA_URL + '/rest/v1/fms_jobs?id=eq.' + job.id, {
-      method: 'PATCH',
-      headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+    // POST with upsert — inserts if new, updates if exists
+    const res = await fetch(SUPA_URL + '/rest/v1/fms_jobs', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
       body: JSON.stringify(row)
     });
-    if (checkRes.status === 404 || checkRes.status === 0) {
-      // Not found — INSERT new record
-      await fetch(SUPA_URL + '/rest/v1/fms_jobs', {
-        method: 'POST',
-        headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
-        body: JSON.stringify(row)
-      });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error('HTTP ' + res.status + ': ' + err);
     }
     console.log('FMS: synced job', job.jcn);
   } catch(e) {
@@ -1530,6 +1531,15 @@ function updateOnlineStatus() {
 // ─────────────────────────────────────────────────────────────────────────────
 // JOB GENERATION
 // ─────────────────────────────────────────────────────────────────────────────
+function genUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  // Fallback for older browsers
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
 function genJCN() {
   const y = new Date().getFullYear();
   const n = String(APP.jobs.length + 1).padStart(4, '0');
@@ -1555,7 +1565,7 @@ function submitNewJob() {
   const gpsManual = document.getElementById('gpsManualNew').value.trim();
 
   const job = {
-    id: 'JOB-' + Date.now(),
+    id: genUUID(),
     jcn: genJCN(),
     crn: source === 'resident_complaint' ? 'CRN-' + new Date().getFullYear() + '-' + String(APP.jobs.length+1).padStart(4,'0') : null,
     manualJcn: document.getElementById('manualJcn').value.trim() || null,
@@ -2825,7 +2835,7 @@ async function testWrite() {
         'Prefer': 'return=minimal'
       },
       body: JSON.stringify({
-        id: 'test-' + Date.now(),
+        id: genUUID(),
         jcn: 'JC-TEST-001',
         status: 'open',
         fault_category: 'streetlight_fault',
