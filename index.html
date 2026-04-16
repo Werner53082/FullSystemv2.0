@@ -947,8 +947,7 @@ function supaHeaders() {
   return {
     'Content-Type': 'application/json',
     'apikey': SUPA_KEY,
-    'Authorization': 'Bearer ' + SUPA_KEY,
-    'Prefer': 'return=representation'
+    'Authorization': 'Bearer ' + SUPA_KEY
   };
 }
 
@@ -1223,16 +1222,30 @@ function rowToJob(r) {
 
 // ── SYNC A SINGLE JOB TO SUPABASE (upsert) ────────────────────────────────────
 async function syncJob(job) {
-  if (!APP.online) { APP._pendingSync = APP._pendingSync || []; APP._pendingSync.push(job.id); return; }
+  if (!APP.online) {
+    APP._pendingSync = APP._pendingSync || [];
+    if (!APP._pendingSync.includes(job.id)) APP._pendingSync.push(job.id);
+    return;
+  }
   try {
-    await supaFetch('fms_jobs?on_conflict=id', {
-      method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-      body: jobToRow(job)
+    const row = jobToRow(job);
+    // Try UPDATE first (job already exists on server)
+    const checkRes = await fetch(SUPA_URL + '/rest/v1/fms_jobs?id=eq.' + job.id, {
+      method: 'PATCH',
+      headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+      body: JSON.stringify(row)
     });
+    if (checkRes.status === 404 || checkRes.status === 0) {
+      // Not found — INSERT new record
+      await fetch(SUPA_URL + '/rest/v1/fms_jobs', {
+        method: 'POST',
+        headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify(row)
+      });
+    }
     console.log('FMS: synced job', job.jcn);
   } catch(e) {
-    console.warn('FMS: sync failed (offline?), queued for later:', job.jcn);
+    console.warn('FMS: sync failed, queued:', job.jcn, e.message);
     APP._pendingSync = APP._pendingSync || [];
     if (!APP._pendingSync.includes(job.id)) APP._pendingSync.push(job.id);
   }
@@ -1242,17 +1255,19 @@ async function syncJob(job) {
 async function syncUser(user) {
   if (!APP.online) return;
   try {
-    await supaFetch('fms_users?on_conflict=id', {
-      method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-      body: {
-        id: user.id, name: user.name, role: user.role,
-        contact: user.contact, employee_id: user.employeeId,
-        active: user.active, created_by: user.createdBy,
-        created_at: user.createdAt,
-        deactivated_at: user.deactivatedAt,
-        deactivated_reason: user.deactivatedReason
-      }
+    const body = JSON.stringify({
+      id: user.id, name: user.name, role: user.role,
+      contact: user.contact, employee_id: user.employeeId,
+      active: user.active, created_by: user.createdBy,
+      created_at: user.createdAt,
+      deactivated_at: user.deactivatedAt,
+      deactivated_reason: user.deactivatedReason
+    });
+    // Try PATCH first, then POST if not found
+    await fetch(SUPA_URL + '/rest/v1/fms_users?id=eq.' + user.id, {
+      method: 'PATCH',
+      headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+      body
     });
   } catch(e) { console.warn('FMS: user sync failed:', e.message); }
 }
@@ -1262,7 +1277,11 @@ async function pullJobs() {
   if (!APP.online) return;
   try {
     showSyncStatus('Syncing jobs…');
-    const rows = await supaFetch('fms_jobs?order=ts_logged.desc&limit=500');
+    const res = await fetch(SUPA_URL + '/rest/v1/fms_jobs?order=ts_logged.desc&limit=500', {
+      headers: { ...supaHeaders(), 'Prefer': 'return=representation' }
+    });
+    if (!res.ok) throw new Error('Pull failed: ' + res.status);
+    const rows = await res.json();
     if (rows && rows.length) {
       // Merge: remote wins for jobs we don't have locally; keep local photos (dataUrls)
       const localById = {};
@@ -1296,7 +1315,11 @@ async function pullJobs() {
 async function pullUsers() {
   if (!APP.online) return;
   try {
-    const rows = await supaFetch('fms_users?active=eq.true&order=name.asc');
+    const res2 = await fetch(SUPA_URL + '/rest/v1/fms_users?active=eq.true&order=name.asc', {
+      headers: { ...supaHeaders(), 'Prefer': 'return=representation' }
+    });
+    if (!res2.ok) throw new Error('User pull failed: ' + res2.status);
+    const rows = await res2.json();
     if (rows && rows.length) {
       APP.users = rows.map(function(r) {
         return { id:r.id, name:r.name, role:r.role, contact:r.contact,
@@ -1429,7 +1452,7 @@ function initApp() {
       syncPending();
       pullJobs();
     }
-  }, 60000);
+  }, 30000);
 }
 
 function buildNav() {
