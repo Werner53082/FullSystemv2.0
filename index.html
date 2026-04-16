@@ -432,26 +432,16 @@ input:checked+.tslider:before{transform:translateX(19px);}
       </div>
 
       <div class="card">
-        <div class="card-title">Location</div>
-        <label>Street address</label>
-        <input type="text" id="streetAddress" placeholder="Street address">
+        <div class="card-title">Fault location</div>
+        <div class="notice notice-info" style="margin-bottom:10px;font-size:12px;">Enter the location of the fault as reported. GPS coordinates are captured on-site by the artisan during investigation.</div>
+        <label>Street address / area description</label>
+        <input type="text" id="streetAddress" placeholder="e.g. 14 Kerk Street, or near the water tower">
+        <label>Suburb / area</label>
+        <input type="text" id="suburbArea" placeholder="e.g. Mahwelereng, Mokopane CBD">
         <label>Account number <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
         <input type="text" id="accountNumber" placeholder="Customer account number">
         <label>Site code <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
         <input type="text" id="siteCode" placeholder="e.g. SUB-MOK-001">
-        <div class="notice notice-info mt8" id="gps-status-new">
-          <span id="gps-status-text-new">Acquiring GPS coordinates…</span>
-        </div>
-        <div id="gps-flag-row" style="display:none;">
-          <div class="toggle-row">
-            <span style="font-size:13px;">Flag GPS as unreliable</span>
-            <label class="toggle"><input type="checkbox" id="gpsFlagNew" onchange="toggleGpsFlag()"><span class="tslider"></span></label>
-          </div>
-          <div id="gps-manual-new" style="display:none;">
-            <label>Manual coordinate or address override</label>
-            <input type="text" id="gpsManualNew" placeholder="e.g. -24.76543, 28.92341 or street address">
-          </div>
-        </div>
       </div>
 
       <div class="card" id="parallel-card">
@@ -922,6 +912,11 @@ input:checked+.tslider:before{transform:translateX(19px);}
       <div class="notice notice-warn" style="margin-bottom:14px;">Your locally saved records will remain on this device. Nothing will be lost.</div>
       <button class="btn btn-danger" onclick="confirmLogout()">Log out &amp; return to role selection</button>
       <button class="btn btn-s mt8" onclick="hideLogout()">Cancel — stay logged in</button>
+      <div id="clear-data-section" style="display:none;margin-top:20px;border-top:1px dashed var(--danger);padding-top:16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--danger);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">&#9888; Testing utility — disable before go-live</div>
+        <div style="font-size:12px;color:var(--tx2);margin-bottom:10px;">Clears all job data from this device only. Does not affect other devices or the Supabase database.</div>
+        <button class="btn btn-s btn-sm" style="border:1px solid var(--danger);color:var(--danger);" onclick="clearLocalData()">Clear local data on this device</button>
+      </div>
     </div>
   </div>
 
@@ -1435,10 +1430,7 @@ function initApp() {
   updateRoleBadge();
   updateOnlineStatus();
   updateDashboard();
-  startGPS(
-    gps => updateGpsStatusUI('gps-status-new', gps, null),
-    err => updateGpsStatusUI('gps-status-new', null, err)
-  );
+  // GPS captured on-site by artisan — not needed at intake
   populateArtisanDropdowns();
   setDashboardGreeting();
   // Pull latest data from Supabase
@@ -1500,12 +1492,7 @@ function goTo(screenId, navId) {
   if (screenId === 'scr-myjobs') myJobFilter('active');
   if (screenId === 'scr-stores') storesTab('pending');
   if (screenId === 'scr-approvals') renderApprovalQueue();
-  if (screenId === 'scr-new') {
-    startGPS(
-      gps => updateGpsStatusUI('gps-status-new', gps, null),
-      err => updateGpsStatusUI('gps-status-new', null, err)
-    );
-  }
+  // GPS not needed at intake — captured on-site by artisan
   if (screenId === 'scr-dashboard') updateDashboard();
   if (screenId === 'scr-records') recFilter('all');
 }
@@ -1570,7 +1557,7 @@ function submitNewJob() {
     responsibleArtisan: artisan || null,
     supportingArtisans: [],
     location: {
-      streetAddress: address,
+      streetAddress: address + (document.getElementById('suburbArea').value.trim() ? ', ' + document.getElementById('suburbArea').value.trim() : ''),
       accountNumber: document.getElementById('accountNumber').value.trim() || null,
       siteCode: document.getElementById('siteCode').value.trim() || null,
       gps: {
@@ -1596,7 +1583,7 @@ function submitNewJob() {
   syncJob(job);
 
   // Reset form
-  ['jobSource','faultCategory','priority','faultDesc','streetAddress','accountNumber','siteCode','manualJcn','freeRef','compName','compContact','compAddress','assignArtisan'].forEach(id => {
+  ['jobSource','faultCategory','priority','faultDesc','streetAddress','suburbArea','accountNumber','siteCode','manualJcn','freeRef','compName','compContact','compAddress','assignArtisan'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
   document.getElementById('gpsFlagNew').checked = false;
@@ -2740,11 +2727,33 @@ function resetPhotoZone(type, label) {
 function showLogout() {
   document.getElementById('logout-name').textContent = APP.user ? APP.user.name : '';
   document.getElementById('logout-role').textContent = APP.user ? (ROLE_LABELS[APP.user.role]||APP.user.role) : '';
+  // ── TESTING ONLY: Show clear data button for DM and Senior Manager ──────────
+  // TO DISABLE BEFORE GO-LIVE: change true to false on the next line
+  var TESTING_MODE = true;
+  var canClear = TESTING_MODE && APP.user && ['manager','senior_manager'].includes(APP.user.role);
+  document.getElementById('clear-data-section').style.display = canClear ? 'block' : 'none';
+  // ── END TESTING ONLY ────────────────────────────────────────────────────────
   var modal = document.getElementById('logoutModal');
   modal.style.display = 'flex';
 }
 function hideLogout() {
   document.getElementById('logoutModal').style.display = 'none';
+}
+
+function clearLocalData() {
+  if (!confirm('Clear all job data from this device?\n\nThis only affects this device. Other devices and the Supabase database are not affected.\n\nTap OK to confirm.')) return;
+  try {
+    localStorage.removeItem('fms_jobs_v1');
+    APP.jobs = [];
+    APP._pendingSync = [];
+    updateDashboard();
+    hideLogout();
+    alert('Local data cleared.\nThe dashboard is now empty on this device.\nJobs will reload from Supabase within 30 seconds.');
+    // Trigger an immediate pull from Supabase
+    if (APP.online) pullJobs();
+  } catch(e) {
+    alert('Error clearing data: ' + e.message);
+  }
 }
 function confirmLogout() {
   APP.user = null;
