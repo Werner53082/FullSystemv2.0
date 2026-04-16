@@ -313,6 +313,14 @@ input:checked+.tslider:before{transform:translateX(19px);}
     <div class="screen active" id="scr-dashboard">
       <p class="sh">Dashboard</p>
       <p class="ss" id="dash-greeting">Good morning</p>
+      <div id="debug-bar" style="display:none;background:#FAEEDA;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;">
+        <strong style="color:#854F0B;">Debug tools (testing only)</strong>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-s btn-sm" onclick="testSupabase()" style="flex:1;">Test connection</button>
+          <button class="btn btn-s btn-sm" onclick="testWrite()" style="flex:1;">Test write</button>
+          <button class="btn btn-s btn-sm" onclick="pullJobs().then(()=>alert('Pull complete — check dashboard'))" style="flex:1;">Force pull</button>
+        </div>
+      </div>
 
       <!-- Summary cards -->
       <div class="summary-grid">
@@ -1461,6 +1469,11 @@ function buildNav() {
 function updateRoleBadge() {
   document.getElementById('roleBadge').textContent = ROLE_LABELS[APP.user.role] || APP.user.role;
   document.getElementById('appTitle').textContent = 'FMS — ' + APP.user.name.split(' ')[0];
+  // Show debug bar for managers during testing
+  var debugBar = document.getElementById('debug-bar');
+  if (debugBar && APP.user && ['manager','senior_manager'].includes(APP.user.role)) {
+    debugBar.style.display = 'block';
+  }
 }
 
 function setDashboardGreeting() {
@@ -2776,6 +2789,59 @@ if (APP.user) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'flex';
   initApp();
+}
+
+// ── DEBUG: Test Supabase connection and show result ───────────────────────────
+async function testSupabase() {
+  const out = [];
+  out.push('URL: ' + SUPA_URL);
+  out.push('Key prefix: ' + SUPA_KEY.substring(0,20) + '...');
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/fms_jobs?limit=1', {
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json'
+      }
+    });
+    out.push('HTTP status: ' + res.status);
+    const body = await res.text();
+    out.push('Response: ' + body.substring(0, 200));
+  } catch(e) {
+    out.push('FETCH ERROR: ' + e.message);
+  }
+  alert(out.join('\n'));
+}
+
+// ── DEBUG: Write a test job directly ─────────────────────────────────────────
+async function testWrite() {
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/fms_jobs', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        id: 'test-' + Date.now(),
+        jcn: 'JC-TEST-001',
+        status: 'open',
+        fault_category: 'streetlight_fault',
+        priority: 'low',
+        street_address: 'Test Street',
+        logged_by: 'Debug Test',
+        ts_logged: new Date().toISOString(),
+        activity_log: [],
+        amendments: [],
+        photos: []
+      })
+    });
+    alert('Write test HTTP status: ' + res.status + '\n' + (res.status === 201 ? 'SUCCESS - check Supabase table!' : 'FAILED - ' + await res.text()));
+  } catch(e) {
+    alert('Write FETCH ERROR: ' + e.message);
+  }
 }
 </script>
 </body>
