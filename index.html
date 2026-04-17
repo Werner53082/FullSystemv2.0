@@ -1858,17 +1858,25 @@ function openJob(id) {
 }
 
 function renderJobActions(j) {
-  const role = APP.user.role;
-  const status = j.status;
-  let html = '';
+  var role = APP.user.role;
+  var status = j.status;
+  var html = '';
+  // Name match — also accept if no artisan assigned yet (artisan can self-assign)
+  var isAssignedArtisan = !j.responsibleArtisan || j.responsibleArtisan === APP.user.name;
 
   // ARTISAN actions
   if (role === 'artisan') {
-    if (['open','investigating'].includes(status) && j.responsibleArtisan === APP.user.name) {
+    // Investigation — open or investigating, assigned to this artisan
+    if (['open','investigating','rejected'].includes(status) && isAssignedArtisan) {
       html += '<button class="btn btn-p mt8" onclick="openInvestigation(\'' + j.id + '\')">Start / update investigation</button>';
     }
-    if (status === 'approved' || status === 'in_progress') {
-      html += '<button class="btn btn-ok mt8" onclick="openInvestigation(\'' + j.id + '\')">Continue — execution phase</button>';
+    // Execution — approved or in progress (any artisan on this job can execute)
+    if (['approved','in_progress'].includes(status)) {
+      html += '<button class="btn btn-ok mt8" onclick="openExecution(\'' + j.id + '\')">Continue — execution phase</button>';
+    }
+    // Completion submitted — show status
+    if (status === 'pending_signoff') {
+      html += '<div class="notice notice-info mt8">Completion submitted — awaiting technician sign-off.</div>';
     }
   }
 
@@ -1883,16 +1891,23 @@ function renderJobActions(j) {
   }
 
   // DM / MANAGER actions
-  if (['manager','senior_manager'].includes(role) || (j.staffShortage && role === 'technician')) {
+  if (['manager','senior_manager'].includes(role)) {
     if (status === 'pending_dm_approval') {
       html += '<button class="btn btn-warn mt8" onclick="openDMApproval(\'' + j.id + '\')">DM approval required</button>';
     }
-    if (status === 'pending_signoff' && j.staffShortage) {
-      html += '<button class="btn btn-ok mt8" onclick="openSignoff(\'' + j.id + '\')">Sign off (staff shortage escalation)</button>';
+    if (status === 'pending_approval') {
+      html += '<button class="btn btn-warn mt8" onclick="openTechApproval(\'' + j.id + '\')">Review investigation</button>';
+    }
+    if (status === 'pending_signoff') {
+      html += '<button class="btn btn-ok mt8" onclick="openSignoff(\'' + j.id + '\')">Review &amp; sign off</button>';
+    }
+    // DM can always see full job and approve at any stage
+    if (['open','investigating'].includes(status)) {
+      html += '<div class="notice notice-info mt8">Job is being investigated by artisan.</div>';
     }
   }
 
-  // CALL CENTRE — can always see status, no action buttons
+  // CALL CENTRE / READ ONLY — status info only
   if (!html && ['open','investigating','approved','in_progress'].includes(status)) {
     html = '<div class="notice notice-info">Job is in progress. No action required from your role at this stage.</div>';
   }
@@ -1900,10 +1915,10 @@ function renderJobActions(j) {
     html = '<div class="notice notice-success">This job is closed.</div>';
   }
   if (!html && status === 'rejected') {
-    html = '<div class="notice notice-danger">This job was rejected. A site visit is required before resubmission.</div>';
+    html = '<div class="notice notice-danger">This job was rejected. A new site visit is required before resubmission.</div>';
   }
 
-  const area = document.getElementById('job-action-area');
+  var area = document.getElementById('job-action-area');
   if (area) area.innerHTML = html;
 }
 
