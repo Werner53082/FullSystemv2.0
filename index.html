@@ -893,6 +893,47 @@ input:checked+.tslider:before{transform:translateX(19px);}
       <div class="btn-row mt11" id="dm-approve-btns"></div>
     </div>
 
+    <!-- ── USER MANAGEMENT ── -->
+    <div class="screen" id="scr-users">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">User management</p>
+        <button class="btn btn-s btn-sm" onclick="goHome()">&#8592; Dashboard</button>
+      </div>
+      <p class="ss">Add, edit and deactivate system users</p>
+
+      <div class="card">
+        <div class="card-title">Add new user</div>
+        <label>Full name</label>
+        <input type="text" id="newUserName" placeholder="Full name">
+        <label>Role</label>
+        <select id="newUserRole">
+          <option value="">Select role…</option>
+          <option value="call_centre">Call centre operator</option>
+          <option value="artisan">Artisan</option>
+          <option value="technician">Technician / Supervisor</option>
+          <option value="stores">Stores officer</option>
+          <option value="manager">Divisional Manager</option>
+          <option value="senior_manager">Manager: Electrical Services</option>
+          <option value="read_only">Read only (SCM / Asset Mgmt)</option>
+        </select>
+        <label>Contact number <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <input type="tel" id="newUserContact" placeholder="+27 …">
+        <label>Employee number <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+        <input type="text" id="newUserEmpId" placeholder="e.g. EMP-042">
+        <button class="btn btn-p mt11" onclick="addUser()">Add user to system</button>
+      </div>
+
+      <div class="section-label">Current users</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:4px;">
+        <button class="badge badge-brand" style="cursor:pointer;border:none;white-space:nowrap;" onclick="filterUsers('all')">All</button>
+        <button class="badge badge-success" style="cursor:pointer;border:none;white-space:nowrap;" onclick="filterUsers('active')">Active</button>
+        <button class="badge badge-gray" style="cursor:pointer;border:none;white-space:nowrap;" onclick="filterUsers('inactive')">Inactive</button>
+      </div>
+      <div class="card" id="users-list">
+        <div class="empty"><p>Loading users…</p></div>
+      </div>
+    </div>
+
     <!-- ── RECORDS ── -->
     <div class="screen" id="scr-records">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -1061,13 +1102,15 @@ const NAV_CONFIG = {
     { id:'approvals', label:'Approvals', screen:'scr-approvals', badge:'cnt-approval' },
     { id:'new', label:'New job', screen:'scr-new' },
     { id:'stores', label:'Stores', screen:'scr-stores' },
-    { id:'records', label:'Records', screen:'scr-records' }
+    { id:'records', label:'Records', screen:'scr-records' },
+    { id:'users', label:'Users', screen:'scr-users' }
   ],
   senior_manager: [
     { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
     { id:'new', label:'New job', screen:'scr-new' },
     { id:'stores', label:'Stores', screen:'scr-stores' },
-    { id:'records', label:'Records', screen:'scr-records' }
+    { id:'records', label:'Records', screen:'scr-records' },
+    { id:'users', label:'Users', screen:'scr-users' }
   ],
   read_only: [
     { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
@@ -1081,7 +1124,8 @@ const NAV_ICONS = {
   myjobs: '<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.4"/><path d="M9 5a2 2 0 002 2h2a2 2 0 002-2" stroke="currentColor" stroke-width="1.4"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
   approvals: '<path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.4"/>',
   stores: '<rect x="3" y="8" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M8 8V6a4 4 0 018 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
-  records: '<path d="M4 6h16M4 10h16M4 14h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
+  records: '<path d="M4 6h16M4 10h16M4 14h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  users: '<circle cx="9" cy="7" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M3 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M16 11l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>'
 };
 
 const ROLE_LABELS = {
@@ -1527,6 +1571,7 @@ function goTo(screenId, navId) {
   // GPS not needed at intake — captured on-site by artisan
   if (screenId === 'scr-dashboard') updateDashboard();
   if (screenId === 'scr-records') recFilter('all');
+  if (screenId === 'scr-users') renderUsersList('all');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2915,6 +2960,194 @@ function confirmLogout() {
   document.getElementById('loginName').value = '';
   document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
   document.getElementById('loginErr').style.display = 'none';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+async function addUser() {
+  var name = document.getElementById('newUserName').value.trim();
+  var role = document.getElementById('newUserRole').value;
+  var contact = document.getElementById('newUserContact').value.trim();
+  var empId = document.getElementById('newUserEmpId').value.trim();
+
+  if (!name) { alert('Please enter a full name.'); return; }
+  if (!role) { alert('Please select a role.'); return; }
+
+  // Check for duplicate name
+  var existing = APP.users.find(function(u) { return u.name.toLowerCase() === name.toLowerCase() && u.active; });
+  if (existing) { alert('A user named "' + name + '" already exists and is active.'); return; }
+
+  var user = {
+    id: genUUID(),
+    name: name,
+    role: role,
+    contact: contact || null,
+    employeeId: empId || null,
+    active: true,
+    createdBy: APP.user.name,
+    createdAt: new Date().toISOString()
+  };
+
+  // Save locally
+  APP.users.push(user);
+  saveLocal();
+  populateArtisanDropdowns();
+
+  // Sync to Supabase
+  if (APP.online) {
+    try {
+      var res = await fetch(SUPA_URL + '/rest/v1/fms_users', {
+        method: 'POST',
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({
+          id: user.id, name: user.name, role: user.role,
+          contact: user.contact, employee_id: user.employeeId,
+          active: true, created_by: user.createdBy, created_at: user.createdAt
+        })
+      });
+      if (!res.ok) { var err = await res.text(); throw new Error(err); }
+    } catch(e) {
+      alert('User saved locally but cloud sync failed: ' + e.message + '\nThey will sync when connection is restored.');
+    }
+  }
+
+  // Clear form
+  document.getElementById('newUserName').value = '';
+  document.getElementById('newUserRole').value = '';
+  document.getElementById('newUserContact').value = '';
+  document.getElementById('newUserEmpId').value = '';
+
+  alert(name + ' added successfully as ' + (ROLE_LABELS[role]||role) + '.\nThey can now log in using their name.');
+  renderUsersList('all');
+}
+
+async function deactivateUser(userId) {
+  var user = APP.users.find(function(u) { return u.id === userId; });
+  if (!user) return;
+  if (!confirm('Deactivate ' + user.name + '?\n\nThey will no longer be able to log in. Their job history is preserved.')) return;
+
+  user.active = false;
+  user.deactivatedAt = new Date().toISOString();
+  user.deactivatedReason = 'Deactivated by ' + APP.user.name;
+  saveLocal();
+  populateArtisanDropdowns();
+
+  if (APP.online) {
+    try {
+      await fetch(SUPA_URL + '/rest/v1/fms_users?id=eq.' + userId, {
+        method: 'PATCH',
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ active: false, deactivated_at: user.deactivatedAt, deactivated_reason: user.deactivatedReason })
+      });
+    } catch(e) { console.warn('Deactivate sync failed:', e.message); }
+  }
+
+  alert(user.name + ' has been deactivated.');
+  renderUsersList('all');
+}
+
+async function reactivateUser(userId) {
+  var user = APP.users.find(function(u) { return u.id === userId; });
+  if (!user) return;
+  if (!confirm('Reactivate ' + user.name + '?')) return;
+
+  user.active = true;
+  user.deactivatedAt = null;
+  user.deactivatedReason = null;
+  saveLocal();
+  populateArtisanDropdowns();
+
+  if (APP.online) {
+    try {
+      await fetch(SUPA_URL + '/rest/v1/fms_users?id=eq.' + userId, {
+        method: 'PATCH',
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ active: true, deactivated_at: null, deactivated_reason: null })
+      });
+    } catch(e) { console.warn('Reactivate sync failed:', e.message); }
+  }
+
+  alert(user.name + ' has been reactivated.');
+  renderUsersList('all');
+}
+
+async function changeUserRole(userId) {
+  var user = APP.users.find(function(u) { return u.id === userId; });
+  if (!user) return;
+  var roles = Object.keys(ROLE_LABELS);
+  var options = roles.map(function(r, i) { return (i+1) + '. ' + ROLE_LABELS[r]; }).join('\n');
+  var choice = prompt('Change role for ' + user.name + ':\nCurrent role: ' + ROLE_LABELS[user.role] + '\n\n' + options + '\n\nType the number:');
+  if (!choice) return;
+  var idx = parseInt(choice) - 1;
+  if (idx < 0 || idx >= roles.length) { alert('Invalid selection.'); return; }
+  var newRole = roles[idx];
+  if (newRole === user.role) { alert('Role unchanged.'); return; }
+
+  user.role = newRole;
+  saveLocal();
+  populateArtisanDropdowns();
+
+  if (APP.online) {
+    try {
+      await fetch(SUPA_URL + '/rest/v1/fms_users?id=eq.' + userId, {
+        method: 'PATCH',
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ role: newRole })
+      });
+    } catch(e) { console.warn('Role change sync failed:', e.message); }
+  }
+
+  alert(user.name + "'s role changed to " + ROLE_LABELS[newRole] + '.');
+  renderUsersList('all');
+}
+
+function filterUsers(filter) {
+  renderUsersList(filter);
+}
+
+function renderUsersList(filter) {
+  var el = document.getElementById('users-list');
+  if (!el) return;
+  filter = filter || 'all';
+
+  var users = APP.users.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+  if (filter === 'active') users = users.filter(function(u) { return u.active; });
+  if (filter === 'inactive') users = users.filter(function(u) { return !u.active; });
+
+  if (!users.length) {
+    el.innerHTML = '<div class="empty"><p>No users found</p><small>Add a user using the form above</small></div>';
+    return;
+  }
+
+  var roleColors = {
+    call_centre:'var(--brand)', artisan:'var(--teal)', technician:'var(--brand-mid)',
+    stores:'var(--success)', manager:'var(--warn)', senior_manager:'var(--warn)',
+    read_only:'var(--gray)'
+  };
+
+  el.innerHTML = users.map(function(u) {
+    var color = roleColors[u.role] || 'var(--gray)';
+    var statusBadge = u.active
+      ? '<span class="badge badge-success" style="font-size:10px;">Active</span>'
+      : '<span class="badge badge-danger" style="font-size:10px;">Inactive</span>';
+    var actionBtn = u.active
+      ? '<button class="btn btn-s btn-sm" onclick="deactivateUser(\'' + u.id + '\')" style="color:var(--danger);border-color:var(--danger);">Deactivate</button>'
+      : '<button class="btn btn-s btn-sm" onclick="reactivateUser(\'' + u.id + '\')" style="color:var(--success);border-color:var(--success);">Reactivate</button>';
+
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--bd);">' +
+      '<div style="width:36px;height:36px;border-radius:var(--rs);background:' + color + '20;border:0.5px solid ' + color + '40;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" stroke-linecap="round"/></svg></div>' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="font-size:14px;font-weight:500;color:var(--tx);">' + u.name + '</div>' +
+      '<div style="font-size:11px;color:var(--tx2);margin-top:2px;">' + (ROLE_LABELS[u.role]||u.role) + (u.contact ? ' · ' + u.contact : '') + '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">' +
+      statusBadge +
+      '<div style="display:flex;gap:4px;">' +
+      '<button class="btn btn-s btn-sm" onclick="changeUserRole(\'' + u.id + '\')">Role</button>' +
+      actionBtn + '</div></div></div>';
+  }).join('');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
