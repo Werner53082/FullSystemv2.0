@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Municipal FMS</title>
+<title>Municipal FMS v202604161205</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;}
@@ -192,8 +192,19 @@ input:checked+.tslider:before{transform:translateX(19px);}
 // Caches the page itself on first load using the Cache API directly.
 // Works in all modern browsers including those that block blob SW URLs.
 (function() {
-  var CACHE_NAME = 'fms-offline-v3';
+  var CACHE_NAME = 'fms-offline-v202604161205';
   var PAGE_URL = window.location.href;
+  // Delete any old cache versions automatically
+  if ('caches' in window) {
+    caches.keys().then(function(keys) {
+      keys.forEach(function(key) {
+        if (key !== CACHE_NAME && key.startsWith('fms-offline-')) {
+          caches.delete(key);
+          console.log('FMS: deleted old cache', key);
+        }
+      });
+    });
+  }
 
   // On load: cache this page for offline use
   if ('caches' in window) {
@@ -299,7 +310,7 @@ input:checked+.tslider:before{transform:translateX(19px);}
     </div>
     <div class="app-header-right">
       <div class="role-badge" id="roleBadge" onclick="showLogout()" title="Tap to switch role" style="cursor:pointer;"></div>
-      <div class="sync-pill" id="syncPill">
+      <div class="sync-pill" id="syncPill" title="Version 202604161205">
         <div class="sdot" id="sdot"></div>
         <span id="syncLbl">Online</span>
       </div>
@@ -360,12 +371,12 @@ input:checked+.tslider:before{transform:translateX(19px);}
       <div class="section-label">Open jobs — all ages</div>
       <!-- Filter row -->
       <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px;">
-        <button class="badge badge-brand" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('all')">All</button>
-        <button class="badge badge-critical" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('critical')">Critical</button>
-        <button class="badge badge-warn" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('high')">High</button>
-        <button class="badge badge-gray" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('artisan')">By artisan</button>
-        <button class="badge badge-gray" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('area')">By area</button>
-        <button class="badge badge-gray" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('type')">By type</button>
+        <button class="badge badge-brand filter-btn" data-filter="all" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('all')">All</button>
+        <button class="badge badge-critical filter-btn" data-filter="critical" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('critical')">Critical</button>
+        <button class="badge badge-warn filter-btn" data-filter="high" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('high')">High</button>
+        <button class="badge badge-gray filter-btn" data-filter="artisan" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('artisan')">By artisan</button>
+        <button class="badge badge-gray filter-btn" data-filter="area" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('area')">By area</button>
+        <button class="badge badge-gray filter-btn" data-filter="type" style="cursor:pointer;border:none;white-space:nowrap;" onclick="setFilter('type')">By type</button>
       </div>
       <div class="card" id="jobs-list">
         <div class="empty">
@@ -1643,14 +1654,111 @@ function updateDashboard() {
   const approvalDot = document.getElementById('dot-approvals');
   if (approvalDot) approvalDot.style.display = approval.length > 0 ? 'block' : 'none';
 
-  renderJobList('jobs-list', open.sort((a,b) => {
-    const pri = {critical:0,high:1,medium:2,low:3};
-    return (pri[a.priority]||9) - (pri[b.priority]||9);
-  }));
+  applyDashboardFilter();
 }
 
-function filterJobs(type) { goTo('scr-dashboard','dashboard'); }
-function setFilter(f) { /* filter logic will be built in Stage detail pass */ }
+// Track active filter
+APP._activeFilter = 'all';
+
+function filterJobs(type) {
+  // Map summary card clicks to filter types
+  var map = { approval:'approval', signoff:'signoff', all:'all', today:'today', 'closed-today':'closed-today' };
+  APP._activeFilter = map[type] || 'all';
+  goTo('scr-dashboard','dashboard');
+  applyDashboardFilter();
+}
+
+function setFilter(f) {
+  APP._activeFilter = f;
+  applyDashboardFilter();
+  // Highlight active filter button
+  document.querySelectorAll('.filter-btn').forEach(function(b) {
+    b.style.opacity = b.dataset.filter === f ? '1' : '0.5';
+    b.style.fontWeight = b.dataset.filter === f ? '700' : '400';
+  });
+}
+
+function applyDashboardFilter() {
+  var f = APP._activeFilter || 'all';
+  var jobs = APP.jobs || [];
+  var today = new Date().toDateString();
+  var filtered;
+
+  if (f === 'all') {
+    filtered = jobs.filter(function(j) { return !['closed','rejected'].includes(j.status); });
+  } else if (f === 'critical') {
+    filtered = jobs.filter(function(j) { return j.priority === 'critical' && !['closed','rejected'].includes(j.status); });
+  } else if (f === 'high') {
+    filtered = jobs.filter(function(j) { return j.priority === 'high' && !['closed','rejected'].includes(j.status); });
+  } else if (f === 'approval') {
+    filtered = jobs.filter(function(j) { return ['pending_approval','pending_dm_approval'].includes(j.status); });
+  } else if (f === 'signoff') {
+    filtered = jobs.filter(function(j) { return j.status === 'pending_signoff'; });
+  } else if (f === 'today') {
+    filtered = jobs.filter(function(j) { return j.timestamps && new Date(j.timestamps.logged).toDateString() === today; });
+  } else if (f === 'closed-today') {
+    filtered = jobs.filter(function(j) { return j.status === 'closed' && j.timestamps && j.timestamps.closed && new Date(j.timestamps.closed).toDateString() === today; });
+  } else if (f === 'artisan') {
+    // Group by artisan — show a picker
+    showArtisanPicker();
+    return;
+  } else if (f === 'area') {
+    showAreaPicker();
+    return;
+  } else if (f === 'type') {
+    showTypePicker();
+    return;
+  } else {
+    filtered = jobs.filter(function(j) { return !['closed','rejected'].includes(j.status); });
+  }
+
+  // Sort by priority then age
+  var pri = { critical:0, high:1, medium:2, low:3 };
+  filtered.sort(function(a,b) { return (pri[a.priority]||9) - (pri[b.priority]||9); });
+  renderJobList('jobs-list', filtered);
+}
+
+function showArtisanPicker() {
+  // Get unique artisans from open jobs
+  var open = (APP.jobs||[]).filter(function(j) { return !['closed','rejected'].includes(j.status); });
+  var artisans = [...new Set(open.map(function(j) { return j.responsibleArtisan; }).filter(Boolean))];
+  if (!artisans.length) { alert('No artisans assigned to open jobs.'); return; }
+  var choice = prompt('Filter by artisan:\n' + artisans.map(function(a,i) { return (i+1)+'. '+a; }).join('\n') + '\n\nType the number:');
+  if (!choice) return;
+  var idx = parseInt(choice) - 1;
+  if (idx >= 0 && idx < artisans.length) {
+    var selected = artisans[idx];
+    var filtered = open.filter(function(j) { return j.responsibleArtisan === selected; });
+    renderJobList('jobs-list', filtered);
+  }
+}
+
+function showAreaPicker() {
+  var open = (APP.jobs||[]).filter(function(j) { return !['closed','rejected'].includes(j.status); });
+  var areas = [...new Set(open.map(function(j) { return j.location && j.location.streetAddress; }).filter(Boolean))];
+  if (!areas.length) { alert('No location data on open jobs.'); return; }
+  var choice = prompt('Filter by area (type part of the area name):');
+  if (!choice) return;
+  var lc = choice.toLowerCase();
+  var filtered = open.filter(function(j) {
+    return j.location && j.location.streetAddress && j.location.streetAddress.toLowerCase().includes(lc);
+  });
+  renderJobList('jobs-list', filtered);
+}
+
+function showTypePicker() {
+  var open = (APP.jobs||[]).filter(function(j) { return !['closed','rejected'].includes(j.status); });
+  var types = [...new Set(open.map(function(j) { return j.faultCategory; }).filter(Boolean))];
+  if (!types.length) { alert('No fault types on open jobs.'); return; }
+  var choice = prompt('Filter by fault type:\n' + types.map(function(t,i) { return (i+1)+'. '+(FAULT_LABELS[t]||t); }).join('\n') + '\n\nType the number:');
+  if (!choice) return;
+  var idx = parseInt(choice) - 1;
+  if (idx >= 0 && idx < types.length) {
+    var selected = types[idx];
+    var filtered = open.filter(function(j) { return j.faultCategory === selected; });
+    renderJobList('jobs-list', filtered);
+  }
+}
 function goToRecon() { goTo('scr-stores','stores'); }
 function myJobFilter(f) {}
 // storesTab defined in Stage 4 section
