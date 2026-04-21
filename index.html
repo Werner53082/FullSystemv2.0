@@ -1906,22 +1906,19 @@ function renderJobActions(j) {
   var role = APP.user.role;
   var status = j.status;
   var html = '';
-  // Name match — also accept if no artisan assigned yet (artisan can self-assign)
-  var isAssignedArtisan = !j.responsibleArtisan || j.responsibleArtisan === APP.user.name;
 
-  // ARTISAN actions
+  // ARTISAN actions — any artisan can action any job at their stage
+  // Name matching removed: jobs may have been assigned to placeholder names
+  // or reassigned. Role is the gating factor, not the name.
   if (role === 'artisan') {
-    // Investigation — open or investigating, assigned to this artisan
-    if (['open','investigating','rejected'].includes(status) && isAssignedArtisan) {
+    if (['open','investigating','rejected'].includes(status)) {
       html += '<button class="btn btn-p mt8" onclick="openInvestigation(\'' + j.id + '\')">Start / update investigation</button>';
     }
-    // Execution — approved or in progress (any artisan on this job can execute)
     if (['approved','in_progress'].includes(status)) {
       html += '<button class="btn btn-ok mt8" onclick="openExecution(\'' + j.id + '\')">Continue — execution phase</button>';
     }
-    // Completion submitted — show status
     if (status === 'pending_signoff') {
-      html += '<div class="notice notice-info mt8">Completion submitted — awaiting technician sign-off.</div>';
+      html += '<div class="notice notice-info mt8">Completion submitted — awaiting sign-off.</div>';
     }
   }
 
@@ -1948,8 +1945,10 @@ function renderJobActions(j) {
     }
     // DM can always see full job and approve at any stage
     if (['open','investigating'].includes(status)) {
-      html += '<div class="notice notice-info mt8">Job is being investigated by artisan.</div>';
+      html += '<div class="notice notice-info mt8">Job is being investigated.</div>';
     }
+    // Manager can always reassign the artisan
+    html += '<button class="btn btn-s mt8" onclick="reassignArtisan(\'' + j.id + '\')">Reassign artisan</button>';
   }
 
   // CALL CENTRE / READ ONLY — status info only
@@ -2932,6 +2931,26 @@ function showLogout() {
 }
 function hideLogout() {
   document.getElementById('logoutModal').style.display = 'none';
+}
+
+function reassignArtisan(jobId) {
+  var j = APP.jobs.find(function(x) { return x.id === jobId; });
+  if (!j) return;
+  var artisans = APP.users.filter(function(u) { return u.active && ['artisan','technician'].includes(u.role); });
+  if (!artisans.length) { alert('No active artisans found. Add users in the Users screen first.'); return; }
+  var options = artisans.map(function(u, i) { return (i+1) + '. ' + u.name + ' (' + (ROLE_LABELS[u.role]||u.role) + ')'; }).join('\n');
+  var choice = prompt('Reassign job ' + j.jcn + '\nCurrently assigned to: ' + (j.responsibleArtisan||'Unassigned') + '\n\n' + options + '\n\nType the number:');
+  if (!choice) return;
+  var idx = parseInt(choice) - 1;
+  if (idx < 0 || idx >= artisans.length) { alert('Invalid selection.'); return; }
+  var selected = artisans[idx];
+  var old = j.responsibleArtisan;
+  j.responsibleArtisan = selected.name;
+  j.activityLog.push({ action: 'Artisan reassigned from ' + (old||'Unassigned') + ' to ' + selected.name, by: APP.user.name, at: new Date().toISOString() });
+  save();
+  syncJob(j);
+  alert('Job reassigned to ' + selected.name + '.\nThey can now action this job.');
+  openJob(j.id);
 }
 
 function clearLocalData() {
