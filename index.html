@@ -657,6 +657,9 @@ input:checked+.tslider:before{transform:translateX(19px);}
         <div id="child-job-note" style="display:none;" class="notice notice-warn mt8">A child job card will be created for the additional work after submission. The current job closes for its original scope.</div>
       </div>
 
+      <div class="notice notice-info mt8" id="exec-return-notice" style="display:none;">
+        <strong>Remember:</strong> After submitting, physically return the removed asset to the Stores officer. They will take Photo 5 (check-in) at the counter and record the condition.
+      </div>
       <div class="btn-row mt11">
         <button class="btn btn-s" onclick="backToJob()">Cancel</button>
         <button class="btn btn-p" onclick="submitExecution()">Submit completion report</button>
@@ -2663,6 +2666,11 @@ function openExecution(jobId) {
   document.getElementById('execOutcome').onchange = function() {
     document.getElementById('child-job-note').style.display = this.value === 'additional' ? 'block' : 'none';
   };
+  // Show reminder to return asset for point replacements
+  var returnNotice = document.getElementById('exec-return-notice');
+  if (returnNotice) {
+    returnNotice.style.display = (j.assetType === 'point' && j.installType === 'replacement') ? 'block' : 'none';
+  }
 
   // Record work start time
   if (!j.timestamps.workStarted) { j.timestamps.workStarted = new Date().toISOString(); save(); }
@@ -2758,19 +2766,46 @@ function openSignoff(jobId) {
     document.getElementById('signoff-stores-check').style.display = 'block';
     const seqKey = getPhotoSequenceKey(j);
     const seq = PHOTO_SEQUENCE[seqKey] || [];
-    const allPhotos = [
-      { key:'issued_at_stores', label:'Photo 1 — Issued at stores', source: j.requisition && j.requisition.issuePhoto },
-      ...seq.map(s => ({ key:s.key, label:s.label, source:(j.photos||[]).find(p=>p.type===s.key) })),
-      { key:'returned_to_stores', label:'Photo 5 — Returned to stores', source: j.requisition && j.requisition.checkinPhoto }
+
+    // ARTISAN photos — taken on site (Photos 1-4A)
+    const artisanPhotos = [
+      { label:'Photo 1 — Issued at stores (Stores officer)', source: j.requisition && j.requisition.issuePhoto },
+      ...seq.map(function(s) { return { label: s.label + ' (Artisan)', source:(j.photos||[]).find(function(p){return p.type===s.key;}) }; })
     ];
-    const storesLoopComplete = j.requisition && j.requisition.issued && j.requisition.returned;
-    document.getElementById('signoff-stores-status').innerHTML =
-      allPhotos.map(p => {
-        const ok = !!(p.source);
-        return '<div class="ir"><span class="l">' + p.label + '</span>' +
-          '<span class="v"><span class="badge ' + (ok?'badge-success':'badge-danger') + '">' + (ok?'✓ Present':'Missing') + '</span></span></div>';
-      }).join('') +
-      (!storesLoopComplete ? '<div class="notice notice-warn" style="margin-top:8px;">Stores loop incomplete — item not yet returned to stores. Verify before signing off.</div>' : '<div class="notice notice-success" style="margin-top:8px;">Stores loop complete.</div>');
+
+    // STORES photo — taken by stores officer at check-in (Photo 5)
+    const storesReturned = j.requisition && j.requisition.returned;
+    const storesPhoto = j.requisition && j.requisition.checkinPhoto;
+    const storesIssued = j.requisition && j.requisition.issued;
+
+    var html = '<div class="section-label" style="margin-top:0;">Artisan photo chain</div>';
+    html += artisanPhotos.map(function(p) {
+      const ok = !!(p.source);
+      return '<div class="ir"><span class="l">' + p.label + '</span>' +
+        '<span class="v"><span class="badge ' + (ok?'badge-success':'badge-danger') + '">' + (ok?'✓ Present':'Missing') + '</span></span></div>';
+    }).join('');
+
+    html += '<div class="section-label">Stores officer actions</div>';
+    html += '<div class="ir"><span class="l">Item issued (Photo 1)</span><span class="v"><span class="badge ' + (storesIssued?'badge-success':'badge-warn') + '">' + (storesIssued?'✓ Issued':'Pending issue') + '</span></span></div>';
+    html += '<div class="ir"><span class="l">Asset returned (Photo 5)</span><span class="v"><span class="badge ' + (storesReturned?'badge-success':'badge-warn') + '">' + (storesReturned?'✓ Returned':'Pending return') + '</span></span></div>';
+
+    if (storesReturned) {
+      const condition = j.requisition.returnCondition || 'unknown';
+      html += '<div class="ir"><span class="l">Condition at return</span><span class="v"><span class="badge ' + (condition==='operational'?'badge-success':'badge-danger') + '">' + condition.charAt(0).toUpperCase()+condition.slice(1) + '</span></span></div>';
+    }
+
+    // Artisan photos all present?
+    const artisanComplete = artisanPhotos.every(function(p) { return !!(p.source); });
+
+    if (!artisanComplete) {
+      html += '<div class="notice notice-danger" style="margin-top:8px;">One or more artisan photos are missing. Request rework before signing off.</div>';
+    } else if (!storesReturned) {
+      html += '<div class="notice notice-warn" style="margin-top:8px;">Artisan photos complete. Awaiting stores officer check-in (Photo 5) — the stores officer returns the asset and takes this photo separately. You may sign off now and the stores loop will complete when the stores officer checks the asset in.</div>';
+    } else {
+      html += '<div class="notice notice-success" style="margin-top:8px;">All photos present. Stores loop complete.</div>';
+    }
+
+    document.getElementById('signoff-stores-status').innerHTML = html;
   } else {
     document.getElementById('signoff-stores-check').style.display = 'none';
   }
