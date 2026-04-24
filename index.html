@@ -2389,16 +2389,26 @@ function storesTab(tab) {
     if (el) el.style.opacity = t === tab ? '1' : '0.6';
   });
   if (tab === 'pending') {
-    const jobs = APP.jobs.filter(j => j.requisition && j.requisition.systemReqNumber && !j.requisition.issued);
+    // Show all approved Track B jobs not yet issued
+    // Include jobs with OR without a system REQ number (DM may have approved without generating one)
+    const jobs = APP.jobs.filter(function(j) {
+      return j.track === 'B' &&
+             j.status === 'approved' &&
+             !(j.requisition && j.requisition.issued);
+    });
     if (!jobs.length) { list.innerHTML = '<div class="empty"><p>No pending issues</p><small>Approved Track B jobs appear here</small></div>'; return; }
     list.innerHTML = jobs.map(j => {
-      const items = j.requisition.items || [];
+      var reqItems = (j.requisition && j.requisition.items && j.requisition.items.length)
+        ? j.requisition.items
+        : (j.investigation && j.investigation.requiredItems || []);
+      var reqNum = (j.requisition && j.requisition.systemReqNumber) ? 'REQ: ' + j.requisition.systemReqNumber : 'Approved — no REQ no.';
+      var equipment = (j.investigation && j.investigation.equipment) || '';
       return '<div class="job-item" onclick="openStoresIssue(\'' + j.id + '\')">' +
         '<div class="job-icon" style="background:var(--success-bg);border:0.5px solid var(--success)40;">' +
         '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="1.5"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M8 8V6a4 4 0 018 0v2" stroke-linecap="round"/></svg></div>' +
         '<div class="job-body"><div class="job-title">' + (FAULT_LABELS[j.faultCategory]||j.faultCategory) + '</div>' +
-        '<div class="job-sub">' + j.jcn + ' · REQ: ' + j.requisition.systemReqNumber + '</div>' +
-        '<div class="job-meta">' + items.length + ' item(s) · ' + j.location.streetAddress + '</div></div>' +
+        '<div class="job-sub">' + j.jcn + ' · ' + reqNum + '</div>' +
+        '<div class="job-meta">' + (equipment ? equipment + ' · ' : '') + reqItems.length + ' item(s) · ' + (j.location && j.location.streetAddress||'') + '</div></div>' +
         '<span class="badge badge-success">Issue</span></div>';
     }).join('');
   } else if (tab === 'returns') {
@@ -2435,17 +2445,38 @@ function openStoresIssue(jobId) {
   APP._currentJobId = jobId;
   const j = APP.jobs.find(x => x.id === jobId);
   if (!j) return;
+  var reqNo = (j.requisition && j.requisition.systemReqNumber) || '—';
+  var manualReq = (j.requisition && j.requisition.manualReqNumber) || '';
   document.getElementById('issue-job-summary').innerHTML =
     '<div class="card-title">Requisition</div>' +
     '<div class="ir"><span class="l">JCN</span><span class="v">' + j.jcn + '</span></div>' +
-    '<div class="ir"><span class="l">REQ</span><span class="v">' + j.requisition.systemReqNumber + '</span></div>' +
-    (j.requisition.manualReqNumber ? '<div class="ir"><span class="l">Manual REQ</span><span class="v">' + j.requisition.manualReqNumber + '</span></div>' : '') +
+    '<div class="ir"><span class="l">REQ number</span><span class="v">' + reqNo + '</span></div>' +
+    (manualReq ? '<div class="ir"><span class="l">Manual REQ</span><span class="v">' + manualReq + '</span></div>' : '') +
     '<div class="ir"><span class="l">Artisan</span><span class="v">' + (j.responsibleArtisan||'—') + '</span></div>' +
-    '<div class="ir"><span class="l">Location</span><span class="v">' + j.location.streetAddress + '</span></div>';
-  const items = j.requisition.items || [];
-  document.getElementById('issue-items-list').innerHTML = items.length
-    ? items.map(item => '<div class="ir"><span class="l">' + (item.stockCode||'—') + '</span><span class="v">' + (item.description||'') + '</span></div>').join('')
-    : '<p style="font-size:13px;color:var(--tx2);">No items listed on requisition.</p>';
+    '<div class="ir"><span class="l">Location</span><span class="v">' + ((j.location && j.location.streetAddress)||'—') + '</span></div>' +
+    '<div class="ir"><span class="l">Priority</span><span class="v"><span class="badge ' + (PRIORITY_META[j.priority]||{badge:'badge-gray'}).badge + '">' + ((PRIORITY_META[j.priority]||{label:'—'}).label) + '</span></span></div>';
+  // Items may be in requisition.items OR investigation.requiredItems
+  // Check both and merge — this handles the Supabase JSONB retrieval edge case
+  var items = [];
+  if (j.requisition && j.requisition.items && j.requisition.items.length) {
+    items = j.requisition.items;
+  } else if (j.investigation && j.investigation.requiredItems && j.investigation.requiredItems.length) {
+    items = j.investigation.requiredItems;
+  }
+  var fault = FAULT_LABELS[j.faultCategory] || j.faultCategory || '—';
+  var equipment = (j.investigation && j.investigation.equipment) || '—';
+  var findings = (j.investigation && j.investigation.findings) || '—';
+  document.getElementById('issue-items-list').innerHTML =
+    '<div class="notice notice-info" style="margin-bottom:10px;">' +
+    '<strong>Fault:</strong> ' + fault + '<br>' +
+    '<strong>Equipment:</strong> ' + equipment + '<br>' +
+    '<strong>Findings:</strong> ' + findings + '</div>' +
+    (items.length
+      ? '<div style="font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px;">Required items</div>' +
+        items.map(function(item) {
+          return '<div class="ir"><span class="l">' + (item.stockCode||'—') + '</span><span class="v">' + (item.description||'') + '</span></div>';
+        }).join('')
+      : '<div class="notice notice-warn">No specific items listed — check investigation notes above and issue according to verbal instruction from technician.</div>');
   resetPhotoZone('issued_at_stores','Tap to photograph item at counter');
   document.getElementById('issueSerial').value = '';
   document.getElementById('issueManualReq').value = j.requisition.manualReqNumber || '';
