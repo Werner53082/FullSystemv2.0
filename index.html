@@ -948,10 +948,11 @@ input:checked+.tslider:before{transform:translateX(19px);}
         <input type="search" id="jobSearch" placeholder="Search by JCN, location, artisan…" oninput="searchJobs(this.value)">
       </div>
       <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px;">
-        <button class="badge badge-brand" style="cursor:pointer;border:none;white-space:nowrap;" onclick="recFilter('all')">All</button>
-        <button class="badge badge-warn" style="cursor:pointer;border:none;white-space:nowrap;" onclick="recFilter('open')">Open</button>
-        <button class="badge badge-success" style="cursor:pointer;border:none;white-space:nowrap;" onclick="recFilter('closed')">Closed</button>
-        <button class="badge badge-danger" style="cursor:pointer;border:none;white-space:nowrap;" onclick="recFilter('critical')">Critical</button>
+        <button class="badge badge-danger rec-filter-btn" data-filter="outstanding" style="cursor:pointer;border:none;white-space:nowrap;" onclick="recFilter('outstanding')">&#9888; Outstanding</button>
+        <button class="badge badge-brand rec-filter-btn" data-filter="all" style="cursor:pointer;border:none;white-space:nowrap;opacity:0.55;" onclick="recFilter('all')">All</button>
+        <button class="badge badge-warn rec-filter-btn" data-filter="open" style="cursor:pointer;border:none;white-space:nowrap;opacity:0.55;" onclick="recFilter('open')">Open</button>
+        <button class="badge badge-success rec-filter-btn" data-filter="closed" style="cursor:pointer;border:none;white-space:nowrap;opacity:0.55;" onclick="recFilter('closed')">Closed</button>
+        <button class="badge badge-danger rec-filter-btn" data-filter="critical" style="cursor:pointer;border:none;white-space:nowrap;opacity:0.55;" onclick="recFilter('critical')">Critical</button>
       </div>
       <div class="card" id="records-list">
         <div class="empty">
@@ -1204,9 +1205,28 @@ function jobToRow(j) {
     ts_completion:        j.timestamps && j.timestamps.completionSubmitted,
     ts_signed_off:        j.timestamps && j.timestamps.signedOff,
     ts_closed:            j.timestamps && j.timestamps.closed,
-    investigation:        j.investigation,
-    requisition:          j.requisition,
-    completion:           j.completion,
+    investigation:        j.investigation ? (function() {
+      var inv = Object.assign({}, j.investigation);
+      // Strip photo dataUrls — photos stored locally only, metadata only to Supabase
+      if (inv.photos) inv.photos = inv.photos.map(function(p) {
+        return { type:p.type, takenAt:p.takenAt, takenBy:p.takenBy, gps:p.gps };
+      });
+      return inv;
+    })() : null,
+    requisition:          j.requisition ? (function() {
+      var req = Object.assign({}, j.requisition);
+      // Strip photo dataUrls from requisition
+      delete req.issuePhoto;
+      delete req.checkinPhoto;
+      return req;
+    })() : null,
+    completion:           j.completion ? (function() {
+      var comp = Object.assign({}, j.completion);
+      if (comp.photos) comp.photos = comp.photos.map(function(p) {
+        return { type:p.type, takenAt:p.takenAt, takenBy:p.takenBy, gps:p.gps };
+      });
+      return comp;
+    })() : null,
     signoff:              j.signoff,
     asset_notification:   j.assetNotification,
     activity_log:         j.activityLog||[],
@@ -1518,7 +1538,7 @@ function initApp() {
       syncPending();
       pullJobs();
     }
-  }, 30000);
+  }, 60000); // 60s poll — reduced from 30s to minimise data usage
 }
 
 function buildNav() {
@@ -1573,7 +1593,10 @@ function goTo(screenId, navId) {
   if (screenId === 'scr-approvals') renderApprovalQueue();
   // GPS not needed at intake — captured on-site by artisan
   if (screenId === 'scr-dashboard') updateDashboard();
-  if (screenId === 'scr-records') recFilter('all');
+  if (screenId === 'scr-records') {
+    var defaultFilter = (APP.user && ['manager','senior_manager'].includes(APP.user.role)) ? 'outstanding' : 'all';
+    recFilter(defaultFilter);
+  }
   if (screenId === 'scr-users') renderUsersList('all');
 }
 
@@ -1733,7 +1756,17 @@ function applyDashboardFilter() {
   var filtered;
 
   if (f === 'all') {
+    // Dashboard open jobs list: only show active jobs, never closed
     filtered = jobs.filter(function(j) { return !['closed','rejected'].includes(j.status); });
+    // Sort: age-flagged (red) first, then amber, then priority, then age
+    filtered.sort(function(a, b) {
+      var fa = getAgeFlag(a), fb = getAgeFlag(b);
+      var fo = {red:0, amber:1, null:2};
+      var fd = (fo[fa]||2) - (fo[fb]||2);
+      if (fd !== 0) return fd;
+      var pri = {critical:0,high:1,medium:2,low:3};
+      return (pri[a.priority]||9) - (pri[b.priority]||9);
+    });
   } else if (f === 'critical') {
     filtered = jobs.filter(function(j) { return j.priority === 'critical' && !['closed','rejected'].includes(j.status); });
   } else if (f === 'high') {
@@ -1811,11 +1844,32 @@ function goToRecon() { goTo('scr-stores','stores'); }
 function myJobFilter(f) {}
 // storesTab defined in Stage 4 section
 function recFilter(f) {
-  let jobs;
-  if (f === 'open') jobs = APP.jobs.filter(j => !['closed','rejected'].includes(j.status));
-  else if (f === 'closed') jobs = APP.jobs.filter(j => j.status === 'closed');
-  else if (f === 'critical') jobs = APP.jobs.filter(j => j.priority === 'critical');
-  else jobs = [...APP.jobs];
+  var jobs;
+  var isDM = APP.user && ['manager','senior_manager'].includes(APP.user.role);
+  if (f === 'outstanding') {
+    // Outstanding: all open/active jobs sorted by age (oldest first)
+    jobs = APP.jobs.filter(function(j) { return !['closed','rejected'].includes(j.status); });
+    jobs.sort(function(a,b) {
+      var fa = getAgeFlag(a), fb = getAgeFlag(b);
+      var fo = {red:0, amber:1, null:2};
+      var fd = (fo[fa]||2) - (fo[fb]||2);
+      if (fd !== 0) return fd;
+      return new Date(a.timestamps && a.timestamps.logged) - new Date(b.timestamps && b.timestamps.logged);
+    });
+  } else if (f === 'open') {
+    jobs = APP.jobs.filter(function(j) { return !['closed','rejected'].includes(j.status); });
+  } else if (f === 'closed') {
+    jobs = APP.jobs.filter(function(j) { return j.status === 'closed'; });
+  } else if (f === 'critical') {
+    jobs = APP.jobs.filter(function(j) { return j.priority === 'critical'; });
+  } else {
+    jobs = APP.jobs.slice();
+  }
+  // Highlight the active filter button
+  document.querySelectorAll('.rec-filter-btn').forEach(function(b) {
+    b.style.opacity = b.dataset.filter === f ? '1' : '0.55';
+    b.style.fontWeight = b.dataset.filter === f ? '700' : '400';
+  });
   renderJobList('records-list', jobs);
 }
 function searchJobs(q) {
@@ -1834,31 +1888,63 @@ function searchJobs(q) {
 // ─────────────────────────────────────────────────────────────────────────────
 // JOB LIST RENDERING
 // ─────────────────────────────────────────────────────────────────────────────
+// ── AGE THRESHOLDS (hours) ────────────────────────────────────────────────────
+const AGE_THRESHOLDS = {
+  critical: { amber: 4,   red: 24  },
+  high:     { amber: 24,  red: 48  },
+  medium:   { amber: 72,  red: 168 },
+  low:      { amber: 168, red: 336 }
+};
+
+function getAgeFlag(job) {
+  if (['closed','rejected'].includes(job.status)) return null;
+  var ageH = Math.floor((Date.now() - new Date(job.timestamps && job.timestamps.logged)) / 3600000);
+  var t = AGE_THRESHOLDS[job.priority];
+  if (!t) return null;
+  if (ageH >= t.red)   return 'red';
+  if (ageH >= t.amber) return 'amber';
+  return null;
+}
+
 function renderJobList(containerId, jobs) {
-  const el = document.getElementById(containerId);
-  if (!jobs || !jobs.length) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  // Filter out null/incomplete jobs (created during early testing with no data)
+  var validJobs = (jobs||[]).filter(function(j) {
+    return j && j.faultCategory && j.faultCategory !== 'null' && j.location && j.location.streetAddress;
+  });
+  if (!validJobs.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.4"/></svg></div><p>No jobs</p></div>';
     return;
   }
-  el.innerHTML = jobs.map(j => {
-    const pm = PRIORITY_META[j.priority] || {label:'?',badge:'badge-gray',color:'#888'};
-    const sm = STATUS_META[j.status] || {label:j.status,color:'#888'};
-    const age = Math.floor((Date.now() - new Date(j.timestamps.logged)) / 3600000);
-    const ageStr = age < 1 ? 'Just now' : age < 24 ? age + 'h ago' : Math.floor(age/24) + 'd ago';
-    return `<div class="job-item" onclick="openJob('${j.id}')">
-      <div class="job-icon" style="background:${pm.color}20;border:0.5px solid ${pm.color}40;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${pm.color}" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2" stroke-linecap="round"/></svg>
-      </div>
-      <div class="job-body">
-        <div class="job-title">${FAULT_LABELS[j.faultCategory]||j.faultCategory}</div>
-        <div class="job-sub">${j.location.streetAddress} · ${j.jcn}</div>
-        <div class="job-meta">${j.responsibleArtisan||'Unassigned'} · ${ageStr}</div>
-      </div>
-      <div class="job-right">
-        <span class="badge ${pm.badge}" style="margin-bottom:4px;">${pm.label}</span><br>
-        <span class="status-badge" style="background:${sm.color}20;color:${sm.color};font-size:10px;">${sm.label}</span>
-      </div>
-    </div>`;
+  el.innerHTML = validJobs.map(function(j) {
+    var pm = PRIORITY_META[j.priority] || {label:'?', badge:'badge-gray', color:'#888'};
+    var sm = STATUS_META[j.status] || {label:j.status||'Unknown', color:'#888'};
+    var ageH = Math.floor((Date.now() - new Date(j.timestamps && j.timestamps.logged)) / 3600000);
+    var ageStr = ageH < 1 ? 'Just now' : ageH < 24 ? ageH + 'h ago' : Math.floor(ageH/24) + 'd ago';
+    var flag = getAgeFlag(j);
+    var flagBorder = flag === 'red' ? 'border-left:3px solid var(--danger);padding-left:10px;' :
+                     flag === 'amber' ? 'border-left:3px solid var(--warn);padding-left:10px;' : '';
+    var ageBadge = flag === 'red'
+      ? '<span style="font-size:10px;color:var(--danger);font-weight:600;">&#9888; ' + ageStr + '</span>'
+      : flag === 'amber'
+      ? '<span style="font-size:10px;color:var(--warn);font-weight:600;">&#9650; ' + ageStr + '</span>'
+      : '<span style="font-size:10px;color:var(--tx3);">' + ageStr + '</span>';
+    var fault = FAULT_LABELS[j.faultCategory] || j.faultCategory || 'Unknown fault';
+    var loc = (j.location && j.location.streetAddress) || '—';
+    var artisan = j.responsibleArtisan || 'Unassigned';
+    return '<div class="job-item" onclick="openJob('' + j.id + '')" style="' + flagBorder + '">' +
+      '<div class="job-icon" style="background:' + pm.color + '20;border:0.5px solid ' + pm.color + '40;">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + pm.color + '" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2" stroke-linecap="round"/></svg></div>' +
+      '<div class="job-body">' +
+      '<div class="job-title">' + fault + '</div>' +
+      '<div class="job-sub">' + loc + ' · ' + (j.jcn||'—') + '</div>' +
+      '<div class="job-meta">' + artisan + ' · ' + ageBadge + '</div>' +
+      '</div>' +
+      '<div class="job-right">' +
+      '<span class="badge ' + pm.badge + '" style="margin-bottom:4px;">' + pm.label + '</span><br>' +
+      '<span class="status-badge" style="background:' + sm.color + '20;color:' + sm.color + ';font-size:10px;">' + sm.label + '</span>' +
+      '</div></div>';
   }).join('');
 }
 
@@ -1917,8 +2003,11 @@ function renderJobActions(j) {
     if (['open','investigating','rejected'].includes(status)) {
       html += '<button class="btn btn-p mt8" onclick="openInvestigation(\'' + j.id + '\')">Start / update investigation</button>';
     }
-    if (['approved','in_progress'].includes(status)) {
-      html += '<button class="btn btn-ok mt8" onclick="openExecution(\'' + j.id + '\')">Continue — execution phase</button>';
+    if (status === 'approved') {
+      html += '<button class="btn btn-ok mt8" onclick="openExecution(\'' + j.id + '\')">Begin execution &amp; capture photos</button>';
+    }
+    if (status === 'in_progress') {
+      html += '<button class="btn btn-ok mt8" onclick="openExecution(\'' + j.id + '\')">Continue execution — add outstanding photos</button>';
     }
     if (status === 'pending_signoff') {
       html += '<div class="notice notice-info mt8">Completion submitted — awaiting sign-off.</div>';
@@ -1954,6 +2043,16 @@ function renderJobActions(j) {
     html += '<button class="btn btn-s mt8" onclick="reassignArtisan(\'' + j.id + '\')">Reassign artisan</button>';
   }
 
+  // TECHNICIAN — can chase outstanding open jobs
+  if (!html && role === 'technician') {
+    if (['open','investigating'].includes(status)) {
+      html = '<div class="notice notice-warn">This job is open and awaiting investigation by ' + (j.responsibleArtisan||'an artisan') + '.</div>' +
+             '<button class="btn btn-s mt8" onclick="reassignArtisan(\'' + j.id + '\')">Reassign artisan</button>';
+    } else if (['approved','in_progress'].includes(status)) {
+      html = '<div class="notice notice-info">Artisan is executing this job.</div>' +
+             '<button class="btn btn-s mt8" onclick="reassignArtisan(\'' + j.id + '\')">Reassign artisan</button>';
+    }
+  }
   // CALL CENTRE / READ ONLY — status info only
   if (!html && ['open','investigating','approved','in_progress'].includes(status)) {
     html = '<div class="notice notice-info">Job is in progress. No action required from your role at this stage.</div>';
@@ -2685,12 +2784,19 @@ function submitExecution() {
   if (!outcome) { alert('Please select the completion outcome.'); return; }
   if (!notes) { alert('Please enter completion notes.'); return; }
 
-  // Check required photos
-  const seqKey = getPhotoSequenceKey(j);
-  const seq = PHOTO_SEQUENCE[seqKey] || PHOTO_SEQUENCE.outage;
-  const existingPhotos = (j.photos||[]).map(p => p.type);
-  const missing = seq.filter(s => s.required && !existingPhotos.includes(s.key) && !(APP.photos && APP.photos[s.key]));
-  if (missing.length) { alert('Required photos missing:\n' + missing.map(m => '• ' + m.label).join('\n')); return; }
+  // Check required photos — HARD BLOCK, no bypass
+  var seqKey = getPhotoSequenceKey(j);
+  var seq = PHOTO_SEQUENCE[seqKey] || PHOTO_SEQUENCE.outage;
+  var existingPhotos = (j.photos||[]).map(function(p) { return p.type; });
+  var missing = seq.filter(function(s) {
+    return s.required && !existingPhotos.includes(s.key) && !(APP.photos && APP.photos[s.key]);
+  });
+  if (missing.length) {
+    alert('Cannot submit — the following photos are required before closing this job:\n\n' +
+      missing.map(function(m, i) { return (i+1) + '. ' + m.label; }).join('\n') +
+      '\n\nPlease take all required photos and then submit.');
+    return;
+  }
 
   // Save new photos from session
   if (!j.photos) j.photos = [];
@@ -2810,9 +2916,18 @@ function openSignoff(jobId) {
     document.getElementById('signoff-stores-check').style.display = 'none';
   }
 
+  // Check if artisan photos complete
+  var soSeqKey = getPhotoSequenceKey(j);
+  var soSeq = PHOTO_SEQUENCE[soSeqKey] || [];
+  var soExisting = (j.photos||[]).map(function(p) { return p.type; });
+  var soArtisanPhotos = [
+    { source: j.requisition && j.requisition.issuePhoto }
+  ].concat(soSeq.map(function(s) { return { source:(j.photos||[]).find(function(p){return p.type===s.key;})}; }));
+  var artisanComplete = soArtisanPhotos.every(function(p) { return !!(p.source); });
+
   document.getElementById('signoff-btns').innerHTML =
     '<button class="btn btn-s" onclick="backToJob()">Cancel</button>' +
-    '<button class="btn btn-s" onclick="showReworkInput()">Request rework</button>' +
+    (!artisanComplete ? '<button class="btn btn-warn" onclick="returnForPhotos()">Return for photos</button>' : '<button class="btn btn-s" onclick="showReworkInput()">Request rework</button>') +
     '<button class="btn btn-ok" onclick="signoffJob()">Sign off &amp; close job</button>';
 
   goTo('scr-signoff', null);
@@ -2843,6 +2958,19 @@ function signoffJob() {
 
 function showReworkInput() {
   document.getElementById('signoff-rework-wrap').style.display='block';
+}
+
+function returnForPhotos() {
+  var j = APP.jobs.find(function(x) { return x.id === APP._currentJobId; });
+  if (!j) return;
+  if (!confirm('Return this job to the artisan to add missing photos?\n\nThe job will go back to In Progress. The artisan can add the outstanding photos and resubmit.')) return;
+  j.status = 'in_progress';
+  j.activityLog.push({ action: 'Returned to artisan — outstanding photos required', by: APP.user.name, at: new Date().toISOString() });
+  save();
+  syncJob(j);
+  updateDashboard();
+  alert('Job returned to artisan.\nThey can now open it and add the missing photos before resubmitting.');
+  goTo('scr-dashboard','dashboard');
 }
 function requestRework(jobId) {
   const j = APP.jobs.find(x => x.id === (jobId||APP._currentJobId));
@@ -2902,11 +3030,15 @@ function handlePhoto(e) {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = img.width; canvas.height = img.height;
+      // Cap photo dimensions to reduce file size — max 1600px wide
+      var maxW = 1600;
+      var scale = img.width > maxW ? maxW / img.width : 1;
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       burnStamp(ctx, canvas.width, canvas.height, APP.currentCamera, APP.camJobContext);
-      const stamped = canvas.toDataURL('image/jpeg', 0.88);
+      const stamped = canvas.toDataURL('image/jpeg', 0.65); // Compressed to reduce data usage
       APP.photos[APP.currentCamera] = stamped;
       markPhotoCaptured(APP.currentCamera, stamped);
     };
