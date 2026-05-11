@@ -1595,6 +1595,12 @@ async function login() {
   if (!pin) { showErr('loginErr', 'Please enter your PIN.'); return; }
   if (pin.length !== 6) { showErr('loginErr', 'PIN must be exactly 6 digits.'); return; }
 
+  // Check system admin first — hardcoded, not in database
+  if (empNo === SYS_ADMIN.empNo && pin === SYS_ADMIN.password) {
+    completeLogin({ name: SYS_ADMIN.name, role: SYS_ADMIN.role, employeeNumber: SYS_ADMIN.empNo, isSysAdmin: true });
+    return;
+  }
+
   // Find user by employee number
   var user = APP.users.find(function(u) { return u.active && u.employeeNumber && u.employeeNumber.toUpperCase() === empNo; });
 
