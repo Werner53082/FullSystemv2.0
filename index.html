@@ -2136,7 +2136,7 @@ function renderJobList(containerId, jobs) {
     var fault = FAULT_LABELS[j.faultCategory] || j.faultCategory || 'Unknown fault';
     var loc = (j.location && j.location.streetAddress) || '—';
     var artisan = j.responsibleArtisan || 'Unassigned';
-    return '<div class="job-item" onclick="openJob('' + j.id + '')" style="' + flagBorder + '">' +
+    return '<div class="job-item" onclick="openJob(\'' + j.id + '\')" style="' + flagBorder + '">' +
       '<div class="job-icon" style="background:' + pm.color + '20;border:0.5px solid ' + pm.color + '40;">' +
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + pm.color + '" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2" stroke-linecap="round"/></svg></div>' +
       '<div class="job-body">' +
