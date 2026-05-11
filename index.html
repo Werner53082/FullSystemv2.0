@@ -293,11 +293,13 @@ input:checked+.tslider:before{transform:translateX(19px);}
     <label>Admin identifier</label>
     <input type="text" id="adminEmpNo" placeholder="SYS-001" autocomplete="off" inputmode="text">
 
-    <label style="margin-top:12px;">Password</label>
+    <label style="margin-top:12px;">Admin PIN</label>
     <div style="position:relative;">
-      <input type="password" id="adminPass" placeholder="Admin password" autocomplete="off"
-        inputmode="text" pattern=".*" onkeydown="if(event.key==='Enter')adminLogin()"
-        style="padding-right:44px;" maxlength="50">
+      <input type="password" id="adminPass" placeholder="6-digit PIN" autocomplete="off"
+        inputmode="numeric" pattern="[0-9]*" maxlength="6"
+        onkeydown="if(event.key==='Enter')adminLogin()"
+        oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+        style="padding-right:44px;">
       <button onclick="togglePinVisibility('adminPass','eyeBtn2')" id="eyeBtn2"
         style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--tx3);padding:4px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" id="eyeIcon2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
@@ -1544,7 +1546,7 @@ function toggleGpsFlag() {
 // AUTHENTICATION — PIN based
 // ─────────────────────────────────────────────────────────────────────────────
 // System admin credentials — hardcoded, not in database
-const SYS_ADMIN = { empNo: 'SYS-001', password: 'werner@53082', name: 'System Admin', role: 'senior_manager' };
+const SYS_ADMIN = { empNo: 'SYS-001', password: '700804', name: 'System Admin', role: 'senior_manager' };
 
 function simpleHash(str) {
   // Simple deterministic hash for PIN storage — not cryptographic but sufficient
