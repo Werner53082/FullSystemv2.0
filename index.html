@@ -1687,15 +1687,22 @@ async function changePin() {
 }
 
 function adminLogin() {
-  hideErr('adminErr');
-  var empNo = document.getElementById('adminEmpNo').value.trim().toUpperCase().replace(/\s/g,'');
-  var pass = document.getElementById('adminPass').value.trim().replace(/\s/g,'');
-  if (!empNo) { showErr('adminErr', 'Please enter the admin identifier.'); return; }
-  if (!pass) { showErr('adminErr', 'Please enter the PIN.'); return; }
-  if (empNo === SYS_ADMIN.empNo && pass === SYS_ADMIN.password) {
-    completeLogin({ name: SYS_ADMIN.name, role: SYS_ADMIN.role, employeeNumber: SYS_ADMIN.empNo, isSysAdmin: true });
-  } else {
-    showErr('adminErr', 'Incorrect credentials. Expected: ' + SYS_ADMIN.empNo + ' / ' + SYS_ADMIN.password.length + ' digits. Got: ' + empNo + ' / ' + pass.length + ' chars.');
+  try {
+    hideErr('adminErr');
+    var empNo = (document.getElementById('adminEmpNo').value || '').trim().toUpperCase();
+    var pass = (document.getElementById('adminPass').value || '').trim();
+    if (empNo === SYS_ADMIN.empNo && pass === SYS_ADMIN.password) {
+      completeLogin({
+        name: SYS_ADMIN.name,
+        role: SYS_ADMIN.role,
+        employeeNumber: SYS_ADMIN.empNo,
+        isSysAdmin: true
+      });
+    } else {
+      showErr('adminErr', 'Incorrect credentials — got [' + empNo + '] and [' + pass + ']');
+    }
+  } catch(e) {
+    alert('Login error: ' + e.message);
   }
 }
 
