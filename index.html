@@ -291,7 +291,7 @@ input:checked+.tslider:before{transform:translateX(19px);}
     <div style="font-size:12px;color:var(--tx2);margin-bottom:18px;">Authorised personnel only</div>
 
     <label>Admin identifier</label>
-    <input type="text" id="adminEmpNo" placeholder="SYS-001" autocomplete="off" inputmode="text">
+    <input type="text" id="adminEmpNo" placeholder="SYS-001" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
     <label style="margin-top:12px;">Admin PIN</label>
     <div style="position:relative;">
@@ -1688,12 +1688,14 @@ async function changePin() {
 
 function adminLogin() {
   hideErr('adminErr');
-  var empNo = document.getElementById('adminEmpNo').value.trim().toUpperCase();
-  var pass = document.getElementById('adminPass').value;
+  var empNo = document.getElementById('adminEmpNo').value.trim().toUpperCase().replace(/\s/g,'');
+  var pass = document.getElementById('adminPass').value.trim().replace(/\s/g,'');
+  if (!empNo) { showErr('adminErr', 'Please enter the admin identifier.'); return; }
+  if (!pass) { showErr('adminErr', 'Please enter the PIN.'); return; }
   if (empNo === SYS_ADMIN.empNo && pass === SYS_ADMIN.password) {
     completeLogin({ name: SYS_ADMIN.name, role: SYS_ADMIN.role, employeeNumber: SYS_ADMIN.empNo, isSysAdmin: true });
   } else {
-    showErr('adminErr', 'Invalid credentials. Access denied.');
+    showErr('adminErr', 'Incorrect credentials. Expected: ' + SYS_ADMIN.empNo + ' / ' + SYS_ADMIN.password.length + ' digits. Got: ' + empNo + ' / ' + pass.length + ' chars.');
   }
 }
 
